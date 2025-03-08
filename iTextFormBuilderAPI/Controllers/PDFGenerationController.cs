@@ -1,12 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
 using iTextFormBuilderAPI.Interfaces;
-using iTextFormBuilderAPI.Services;
 using iTextFormBuilderAPI.Models.APIModels;
-using Swashbuckle.AspNetCore.Annotations;
+using iTextFormBuilderAPI.Services;
+using Microsoft.AspNetCore.Mvc;
 using RazorLight.Razor;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace iTextFormBuilderAPI.Controllers;
-
 
 [Route("api/[controller]")]
 [ApiController]
@@ -23,8 +22,11 @@ public class PDFGenerationController : ControllerBase
     /// Generates a PDF based on a specified template and data.
     /// </summary>
     /// <remarks>
-    /// **Example Request (JSON Body):**
+    /// This endpoint accepts a template name and associated data to generate a customized PDF document.
+    /// The template must exist in the system, and the data structure should match what the template expects.
     /// 
+    /// **Example Request (JSON Body):**
+    ///
     /// ```json
     /// {
     ///   "templateName": "Invoice",

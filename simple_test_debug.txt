@@ -1,0 +1,10 @@
+Debug log started at 03/08/2025 09:51:22
+
+Request JSON: {
+    "templateName":  "SimpleTest",
+    "data":  {
+
+             }
+}
+Sending request to API at 03/08/2025 09:51:22
+Response received successfully
