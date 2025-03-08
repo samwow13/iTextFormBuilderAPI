@@ -11,53 +11,7 @@ using System.Text;
 
 namespace iTextFormBuilderAPI.Services;
 
-/// <summary>
-/// In-memory project implementation for RazorLight template engine.
-/// Stores and manages templates in memory for PDF generation.
-/// </summary>
-public class RazorLightInMemoryProject : RazorLightProject
-{
-    private readonly Dictionary<string, string> _templates = new Dictionary<string, string>();
-
-    /// <summary>
-    /// Retrieves a RazorLight project item from the in-memory project.
-    /// </summary>
-    /// <param name="templateKey">Key of the template to retrieve</param>
-    /// <returns>RazorLight project item containing the template content</returns>
-    public override Task<RazorLightProjectItem> GetItemAsync(string templateKey)
-    {
-        return Task.FromResult<RazorLightProjectItem>(
-            new TextSourceRazorProjectItem(
-                templateKey,
-                _templates.TryGetValue(templateKey, out string template)
-                    ? template
-                    : string.Empty
-            )
-        );
-    }
-
-    /// <summary>
-    /// Retrieves a list of imports for a given template key.
-    /// </summary>
-    /// <param name="templateKey">Key of the template to retrieve imports for</param>
-    /// <returns>Empty list of RazorLight project items (no imports are used in this implementation)</returns>
-    public override Task<IEnumerable<RazorLightProjectItem>> GetImportsAsync(string templateKey)
-    {
-        return Task.FromResult<IEnumerable<RazorLightProjectItem>>(
-            Array.Empty<RazorLightProjectItem>()
-        );
-    }
-
-    /// <summary>
-    /// Adds a template to the in-memory project.
-    /// </summary>
-    /// <param name="key">Key of the template to add</param>
-    /// <param name="template">Content of the template to add</param>
-    public void AddTemplate(string key, string template)
-    {
-        _templates[key] = template;
-    }
-}
+// This comment replaces the removed RazorLightInMemoryProject class
 
 public class PDFGenerationService : IPDFGenerationService
 {
@@ -66,13 +20,41 @@ public class PDFGenerationService : IPDFGenerationService
     private static DateTime? _lastPDFGenerationTime = null;
     private static string _lastPDFGenerationStatus = "N/A";
     private static readonly Stopwatch _uptime = Stopwatch.StartNew();
-    private readonly string _globalStylesPath = Path.Combine(
-        Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty,
-        "Templates\\globalStyles.css"
-    );
+    private readonly string _globalStylesPath;
+    private readonly IRazorTemplateService _razorTemplateService;
 
     // Store the last 10 PDF generations
     private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();
+
+    /// <summary>
+    /// Initializes a new instance of the PDFGenerationService
+    /// </summary>
+    /// <param name="razorTemplateService">Service for managing Razor templates</param>
+    public PDFGenerationService(IRazorTemplateService razorTemplateService)
+    {
+        _razorTemplateService = razorTemplateService;
+        
+        // Initialize the global styles path
+        string? baseDirectoryPath = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName;
+        _globalStylesPath = !string.IsNullOrEmpty(baseDirectoryPath)
+            ? Path.Combine(baseDirectoryPath, "Templates", "globalStyles.css")
+            : Path.Combine(AppContext.BaseDirectory, "Templates", "globalStyles.css");
+        
+        // Initialize templates from the file system
+        InitializeTemplates();
+    }
+    
+    /// <summary>
+    /// Initializes templates from the file system
+    /// </summary>
+    private void InitializeTemplates()
+    {
+        // Load templates from the registry
+        foreach (var templateName in PdfTemplateRegistry.ValidTemplates)
+        {
+            _razorTemplateService.LoadTemplateFromFile(templateName);
+        }
+    }
 
     public ServiceHealthStatus GetServiceHealth()
     {
@@ -114,7 +96,9 @@ public class PDFGenerationService : IPDFGenerationService
         DebugLogger.Log($"Starting PDF generation for template: {templateName}");
         DebugLogger.Log($"Data: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
 
-        if (!PdfTemplateRegistry.ValidTemplates.Contains(templateName, StringComparer.OrdinalIgnoreCase))
+        // Check if the template exists in our service or can be loaded
+        if (!_razorTemplateService.TemplateExists(templateName) && 
+            !_razorTemplateService.LoadTemplateFromFile(templateName))
         {
             _errorsLogged++;
             _lastPDFGenerationStatus = "Failed - Template not found";
@@ -200,37 +184,37 @@ public class PDFGenerationService : IPDFGenerationService
     /// </remarks>
     private string InjectGlobalStyles(string htmlContent)
     {
+        if (!File.Exists(_globalStylesPath))
+        {
+            DebugLogger.Log($"Global styles file not found at: {_globalStylesPath}");
+            return htmlContent;
+        }
+
+        DebugLogger.Log($"Injecting global styles from: {_globalStylesPath}");
+
         try
         {
-            if (!File.Exists(_globalStylesPath))
+            string globalStyles = File.ReadAllText(_globalStylesPath);
+            DebugLogger.Log($"Global styles loaded, length: {globalStyles.Length} characters");
+
+            // If there's no head tag, we can't inject styles
+            if (!htmlContent.Contains("<head>"))
             {
-                Trace.WriteLine($"Global styles file not found: {_globalStylesPath}");
+                DebugLogger.Log("No head tag found in HTML, cannot inject styles");
                 return htmlContent;
             }
 
-            var cssContent = File.ReadAllText(_globalStylesPath);
+            // Insert the global styles inside the head tag
+            string styleTag = $"<style>{globalStyles}</style>";
+            string modifiedHtml = htmlContent.Replace("<head>", $"<head>{Environment.NewLine}{styleTag}");
 
-            // Find the closing head tag
-            const string headEndTag = "</head>";
-            var headEndIndex = htmlContent.IndexOf(
-                headEndTag,
-                StringComparison.OrdinalIgnoreCase
-            );
-
-            if (headEndIndex == -1)
-            {
-                Trace.WriteLine("No </head> tag found in HTML content");
-                return htmlContent;
-            }
-
-            // Inject the CSS content within a style tag before the </head>
-            var styleTag = $"<style>{cssContent}</style>";
-            return htmlContent.Insert(headEndIndex, styleTag);
+            DebugLogger.Log("Global styles injected successfully");
+            return modifiedHtml;
         }
         catch (Exception ex)
         {
-            Trace.WriteLine($"Error injecting global styles: {ex}");
-            return htmlContent;
+            DebugLogger.LogException(ex, "InjectGlobalStyles");
+            return htmlContent; // Return original content if there was an error
         }
     }
 
@@ -238,149 +222,139 @@ public class PDFGenerationService : IPDFGenerationService
     {
         DebugLogger.Log($"GeneratePdfFromTemplate called for template: {templateName}");
         
-        if (!TemplateExists(templateName))
+        // Get the template content from our service
+        var templateContent = _razorTemplateService.GetTemplateContent(templateName);
+        if (string.IsNullOrEmpty(templateContent))
         {
-            DebugLogger.Log("Template does not exist");
+            DebugLogger.Log("Template content is empty");
             return Array.Empty<byte>();
         }
-
-        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
-        var templatePath = Path.Combine(projectRoot, "Templates", $"{templateName}.cshtml");
-        DebugLogger.Log($"Template path: {templatePath}");
-        
-        if (!File.Exists(templatePath))
-        {
-            DebugLogger.Log($"Template file not found at path: {templatePath}");
-            return Array.Empty<byte>();
-        }
-        
-        var templateContent = File.ReadAllText(templatePath);
         DebugLogger.Log($"Template content length: {templateContent.Length} characters");
         DebugLogger.Log($"Template content (first 500 chars): {templateContent.Substring(0, Math.Min(500, templateContent.Length))}");
 
-        // Create a strongly-typed model instance based on the template name
-        object typedModel = CreateTypedModel(templateName, data);
-        if (typedModel == null)
+        // Handle the model type to match the template type
+        var templateModel = GetTemplateModel(templateName, data);
+        if (templateModel == null)
         {
-            DebugLogger.Log("Failed to create typed model");
+            DebugLogger.Log("Template model is null");
             return Array.Empty<byte>();
         }
 
-        DebugLogger.Log($"Model type: {typedModel.GetType().FullName}");
+        var typedModel = Convert.ChangeType(templateModel, templateModel.GetType());
         DebugLogger.Log($"Model data: {JsonConvert.SerializeObject(typedModel, Formatting.Indented)}");
 
-        // Create a simple memory project for RazorLight
-        var project = new RazorLightInMemoryProject();
-        project.AddTemplate(templateName, templateContent);
-
-        var engine = new RazorLightEngineBuilder()
-            .UseMemoryCachingProvider()
-            .UseProject(project)
-            .EnableDebugMode()
-            .Build();
+        // Get the RazorLight engine from our service
+        var engine = _razorTemplateService.GetRazorEngine();
 
         try
         {
-            // Render the template into HTML
-            DebugLogger.Log("Starting template rendering...");
-            string htmlContent = engine.CompileRenderAsync(templateName, typedModel).Result;
-            DebugLogger.Log($"HTML content length: {htmlContent.Length} characters");
+            // Generate HTML from the template using RazorLight
+            DebugLogger.Log("Rendering template with RazorLight...");
+            string htmlContent = engine.CompileRenderStringAsync(templateName, templateContent, typedModel).Result;
             DebugLogger.Log($"HTML content (first 1000 chars): {htmlContent.Substring(0, Math.Min(1000, htmlContent.Length))}");
 
             // Save HTML to a file for inspection
-            string htmlFilePath = Path.Combine(projectRoot, "debug_output.html");
+            string? baseDirectoryPath = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName;
+            string htmlFilePath = !string.IsNullOrEmpty(baseDirectoryPath)
+                ? Path.Combine(baseDirectoryPath, "debug_output.html")
+                : Path.Combine(AppContext.BaseDirectory, "debug_output.html");
+                
             File.WriteAllText(htmlFilePath, htmlContent);
             DebugLogger.Log($"Saved HTML content to: {htmlFilePath}");
+
+            // Inject global styles into the HTML content
+            htmlContent = InjectGlobalStyles(htmlContent);
 
             // Convert the HTML content to a PDF using iText7.pdfhtml
             DebugLogger.Log("Converting HTML to PDF...");
             using (var ms = new MemoryStream())
             {
-                try
+                HtmlConverter.ConvertToPdf(htmlContent, ms);
+                var pdfBytes = ms.ToArray();
+                if (pdfBytes.Length > 0)
                 {
-                    HtmlConverter.ConvertToPdf(htmlContent, ms);
-                    byte[] pdfBytes = ms.ToArray();
                     DebugLogger.Log($"PDF conversion complete. PDF size: {pdfBytes.Length} bytes");
                     
                     // Save PDF to a file for inspection
-                    string pdfFilePath = Path.Combine(projectRoot, "debug_output.pdf");
+                    string pdfFilePath = !string.IsNullOrEmpty(baseDirectoryPath)
+                        ? Path.Combine(baseDirectoryPath, "debug_output.pdf")
+                        : Path.Combine(AppContext.BaseDirectory, "debug_output.pdf");
+                        
                     File.WriteAllBytes(pdfFilePath, pdfBytes);
                     DebugLogger.Log($"Saved PDF content to: {pdfFilePath}");
                     
                     return pdfBytes;
                 }
-                catch (Exception ex)
+                else
                 {
-                    DebugLogger.LogException(ex, "PDF Conversion");
+                    DebugLogger.Log("PDF conversion returned empty PDF");
                     return Array.Empty<byte>();
                 }
             }
         }
         catch (Exception ex)
         {
-            DebugLogger.LogException(ex, "Template Rendering");
+            DebugLogger.LogException(ex, "GeneratePdfFromTemplate");
             return Array.Empty<byte>();
         }
     }
 
     /// <summary>
-    /// Creates a strongly-typed model instance based on the template name and data.
+    /// Gets the appropriate model type for the template
     /// </summary>
     /// <param name="templateName">Name of the template</param>
-    /// <param name="data">Raw data object</param>
-    /// <returns>Strongly-typed model instance</returns>
-    private object CreateTypedModel(string templateName, object data)
+    /// <param name="data">Data object from the client</param>
+    /// <returns>A model instance for the specified template</returns>
+    private object? GetTemplateModel(string templateName, object data)
     {
         try
         {
-            // Convert data to JSON
-            string json = JsonConvert.SerializeObject(data);
+            DebugLogger.Log($"Getting model for template: {templateName}");
 
-            // Determine the model type based on the template name
-            if (templateName.Equals("HealthAndWellness\\TestRazorDataAssessment", StringComparison.OrdinalIgnoreCase))
+            // Try to cast JSON data to a dynamic object
+            dynamic? jsonData = data is string jsonString
+                ? JsonConvert.DeserializeObject<dynamic>(jsonString)
+                : data;
+
+            if (jsonData == null)
             {
-                // For TestRazorDataAssessment template, use TestRazorDataInstance model
-                return JsonConvert.DeserializeObject<iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataModels.TestRazorDataInstance>(json) ?? data;
-            }
-            // For SimpleTest template, no model needed
-            else if (templateName.Equals("SimpleTest", StringComparison.OrdinalIgnoreCase))
-            {
-                // Simple test doesn't need a model, return empty object
-                DebugLogger.Log("Using empty model for SimpleTest template");
-                return new object();
+                DebugLogger.Log("JSON data is null after deserialization");
+                return null;
             }
 
-            // Add more template-to-model mappings as needed
+            // Map template name to model type
+            string modelType = $"iTextFormBuilderAPI.Models.{templateName}Instance";
+            DebugLogger.Log($"Looking for model type: {modelType}");
 
-            // If no specific mapping is found, return the original data
-            DebugLogger.Log($"No model type mapping found for template: {templateName}");
-            return data;
+            // Get the model type by name
+            Type? type = Type.GetType(modelType);
+            if (type == null)
+            {
+                // Try to find the type in current assembly if not found by name
+                type = AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(a => a.GetTypes())
+                    .FirstOrDefault(t => t.FullName == modelType);
+            }
+
+            if (type == null)
+            {
+                DebugLogger.Log($"Model type not found: {modelType}");
+                return null;
+            }
+
+            DebugLogger.Log($"Model type found: {type.FullName}");
+
+            // Convert JSON to the model type
+            var json = JsonConvert.SerializeObject(jsonData);
+            var model = JsonConvert.DeserializeObject(json, type);
+
+            DebugLogger.Log($"Model created: {model != null}");
+            return model;
         }
         catch (Exception ex)
         {
-            DebugLogger.LogException(ex, "CreateTypedModel");
+            DebugLogger.LogException(ex, "GetTemplateModel");
             return data; // Return original data instead of null to avoid null reference
         }
-    }
-
-    private bool TemplateExists(string templateName)
-    {
-        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
-
-        if (string.IsNullOrEmpty(projectRoot))
-        {
-            Trace.WriteLine("Unable to determine project root directory.");
-            return false;
-        }
-
-        var templatePath = Path.Combine(projectRoot, "Templates", $"{templateName}.cshtml");
-
-        if (!File.Exists(templatePath))
-        {
-            Trace.WriteLine($"Template file not found: {templatePath}");
-            return false;
-        }
-
-        return true;
     }
 }

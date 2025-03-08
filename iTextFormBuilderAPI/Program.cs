@@ -10,6 +10,7 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Register services for dependency injection
+builder.Services.AddSingleton<iTextFormBuilderAPI.Interfaces.IRazorTemplateService, iTextFormBuilderAPI.Services.RazorTemplateService>();
 builder.Services.AddScoped<iTextFormBuilderAPI.Interfaces.IPDFGenerationService, iTextFormBuilderAPI.Services.PDFGenerationService>();
 
 var app = builder.Build();

@@ -1,12 +1,12 @@
-Log started at 3/8/2025 9:02:13 AM
-[2025-03-08 09:02:13.004] Starting PDF generation for template: SimpleTest
-[2025-03-08 09:02:13.005] Data: {
+Log started at 3/8/2025 9:51:22 AM
+[2025-03-08 09:51:22.975] Starting PDF generation for template: SimpleTest
+[2025-03-08 09:51:23.006] Data: {
   "ValueKind": 1
 }
-[2025-03-08 09:02:13.005] GeneratePdfFromTemplate called for template: SimpleTest
-[2025-03-08 09:02:13.005] Template path: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\Templates\SimpleTest.cshtml
-[2025-03-08 09:02:13.005] Template content length: 297 characters
-[2025-03-08 09:02:13.005] Template content (first 500 chars): @using System
+[2025-03-08 09:51:23.007] GeneratePdfFromTemplate called for template: SimpleTest
+[2025-03-08 09:51:23.008] Template path: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\Templates\SimpleTest.cshtml
+[2025-03-08 09:51:23.008] Template content length: 314 characters
+[2025-03-08 09:51:23.008] Template content (first 500 chars): @using System
 @{
     Layout = null;
 }
@@ -24,12 +24,12 @@ Log started at 3/8/2025 9:02:13 AM
 </body>
 </html>
 
-[2025-03-08 09:02:13.006] Using empty model for SimpleTest template
-[2025-03-08 09:02:13.006] Model type: System.Object
-[2025-03-08 09:02:13.006] Model data: {}
-[2025-03-08 09:02:13.007] Starting template rendering...
-[2025-03-08 09:02:13.321] HTML content length: 254 characters
-[2025-03-08 09:02:13.322] HTML content (first 1000 chars): 
+[2025-03-08 09:51:23.009] Using empty model for SimpleTest template
+[2025-03-08 09:51:23.009] Model type: System.Object
+[2025-03-08 09:51:23.009] Model data: {}
+[2025-03-08 09:51:23.040] Starting template rendering...
+[2025-03-08 09:51:23.963] HTML content length: 267 characters
+[2025-03-08 09:51:23.963] HTML content (first 1000 chars): 
 <!DOCTYPE html>
 <html>
 <head>
@@ -39,12 +39,12 @@ Log started at 3/8/2025 9:02:13 AM
 <body>
     <h1>Simple Test PDF</h1>
     <p>This is a simple test to debug PDF generation.</p>
-    <p>Generated at: 3/8/2025 9:02:13 AM</p>
+    <p>Generated at: 3/8/2025 9:51:23 AM</p>
 </body>
 </html>
 
-[2025-03-08 09:02:13.322] Saved HTML content to: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\debug_output.html
-[2025-03-08 09:02:13.322] Converting HTML to PDF...
-[2025-03-08 09:02:13.741] PDF conversion complete. PDF size: 1347 bytes
-[2025-03-08 09:02:13.742] Saved PDF content to: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\debug_output.pdf
-[2025-03-08 09:02:13.742] Success: PDF generated with 1347 bytes
+[2025-03-08 09:51:23.964] Saved HTML content to: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\debug_output.html
+[2025-03-08 09:51:23.964] Converting HTML to PDF...
+[2025-03-08 09:51:24.356] PDF conversion complete. PDF size: 1347 bytes
+[2025-03-08 09:51:24.357] Saved PDF content to: C:\Users\samwo\OneDrive\Desktop\Python Code\ITextFormBuilderAPI\iTextFormBuilderAPI\debug_output.pdf
+[2025-03-08 09:51:24.357] Success: PDF generated with 1347 bytes
