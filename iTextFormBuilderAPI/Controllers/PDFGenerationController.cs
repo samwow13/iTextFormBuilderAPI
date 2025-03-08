@@ -22,6 +22,9 @@ public class PDFGenerationController : ControllerBase
     /// Generates a PDF based on a specified template and data.
     /// </summary>
     /// <remarks>
+    /// This endpoint accepts a template name and associated data to generate a customized PDF document.
+    /// The template must exist in the system, and the data structure should match what the template expects.
+    /// 
     /// **Example Request (JSON Body):**
     ///
     /// ```json

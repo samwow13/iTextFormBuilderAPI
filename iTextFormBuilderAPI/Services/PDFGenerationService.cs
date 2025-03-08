@@ -6,7 +6,8 @@ using iTextFormBuilderAPI.Utilities;
 using RazorLight;
 using RazorLight.Razor;
 using iText.Html2pdf;
-
+using Newtonsoft.Json;
+using System.Text;
 
 namespace iTextFormBuilderAPI.Services;
 
@@ -57,6 +58,7 @@ public class RazorLightInMemoryProject : RazorLightProject
         _templates[key] = template;
     }
 }
+
 public class PDFGenerationService : IPDFGenerationService
 {
     private static int _pdfsGenerated = 0;
@@ -68,7 +70,6 @@ public class PDFGenerationService : IPDFGenerationService
         Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty,
         "Templates\\globalStyles.css"
     );
-
 
     // Store the last 10 PDF generations
     private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();
@@ -108,21 +109,61 @@ public class PDFGenerationService : IPDFGenerationService
         bool success;
         string message;
 
+        // Clear the debug log
+        DebugLogger.ClearLog();
+        DebugLogger.Log($"Starting PDF generation for template: {templateName}");
+        DebugLogger.Log($"Data: {JsonConvert.SerializeObject(data, Formatting.Indented)}");
+
         if (!PdfTemplateRegistry.ValidTemplates.Contains(templateName, StringComparer.OrdinalIgnoreCase))
         {
             _errorsLogged++;
             _lastPDFGenerationStatus = "Failed - Template not found";
             success = false;
             message = $"Template '{templateName}' does not exist.";
+            DebugLogger.Log($"Error: {message}");
         }
         else
         {
-            byte[] pdfBytes = GeneratePdfFromTemplate(templateName, data);
-            _pdfsGenerated++;
-            _lastPDFGenerationTime = DateTime.UtcNow;
-            _lastPDFGenerationStatus = "Success";
-            success = true;
-            message = "PDF generated successfully.";
+            try
+            {
+                byte[] pdfBytes = GeneratePdfFromTemplate(templateName, data);
+                _pdfsGenerated++;
+                _lastPDFGenerationTime = DateTime.UtcNow;
+                _lastPDFGenerationStatus = "Success";
+                success = true;
+                message = "PDF generated successfully.";
+                DebugLogger.Log($"Success: PDF generated with {pdfBytes.Length} bytes");
+
+                // Store the last 10 PDF generations
+                _recentPdfGenerations.Add(new PdfGenerationLog
+                {
+                    Timestamp = DateTime.UtcNow,
+                    TemplateName = templateName,
+                    Success = success,
+                    Message = message
+                });
+
+                // Ensure the list never exceeds 10 entries
+                if (_recentPdfGenerations.Count > 10)
+                {
+                    _recentPdfGenerations.RemoveAt(0);
+                }
+
+                return new PdfResult
+                {
+                    Success = success,
+                    PdfBytes = pdfBytes,
+                    Message = message
+                };
+            }
+            catch (Exception ex)
+            {
+                _errorsLogged++;
+                _lastPDFGenerationStatus = "Failed - Exception";
+                success = false;
+                message = $"Exception generating PDF: {ex.Message}";
+                DebugLogger.LogException(ex, "GeneratePdf");
+            }
         }
 
         // Store the last 10 PDF generations
@@ -157,21 +198,21 @@ public class PDFGenerationService : IPDFGenerationService
     /// Reads styles from globalStyles.css and injects them into the head section.
     /// If the styles file is not found or head tag is missing, returns original content.
     /// </remarks>
-    private string InjectGlobalStyles(string cshtmlContent)
+    private string InjectGlobalStyles(string htmlContent)
     {
         try
         {
             if (!File.Exists(_globalStylesPath))
             {
                 Trace.WriteLine($"Global styles file not found: {_globalStylesPath}");
-                return cshtmlContent;
+                return htmlContent;
             }
 
             var cssContent = File.ReadAllText(_globalStylesPath);
 
             // Find the closing head tag
             const string headEndTag = "</head>";
-            var headEndIndex = cshtmlContent.IndexOf(
+            var headEndIndex = htmlContent.IndexOf(
                 headEndTag,
                 StringComparison.OrdinalIgnoreCase
             );
@@ -179,70 +220,154 @@ public class PDFGenerationService : IPDFGenerationService
             if (headEndIndex == -1)
             {
                 Trace.WriteLine("No </head> tag found in HTML content");
-                return cshtmlContent;
+                return htmlContent;
             }
 
             // Inject the CSS content within a style tag before the </head>
             var styleTag = $"<style>{cssContent}</style>";
-            return cshtmlContent.Insert(headEndIndex, styleTag);
+            return htmlContent.Insert(headEndIndex, styleTag);
         }
         catch (Exception ex)
         {
             Trace.WriteLine($"Error injecting global styles: {ex}");
-            return cshtmlContent;
+            return htmlContent;
         }
     }
 
-
     private byte[] GeneratePdfFromTemplate(string templateName, object data)
     {
+        DebugLogger.Log($"GeneratePdfFromTemplate called for template: {templateName}");
+        
         if (!TemplateExists(templateName))
         {
+            DebugLogger.Log("Template does not exist");
             return Array.Empty<byte>();
         }
 
-        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName;
+        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
         var templatePath = Path.Combine(projectRoot, "Templates", $"{templateName}.cshtml");
+        DebugLogger.Log($"Template path: {templatePath}");
+        
+        if (!File.Exists(templatePath))
+        {
+            DebugLogger.Log($"Template file not found at path: {templatePath}");
+            return Array.Empty<byte>();
+        }
+        
         var templateContent = File.ReadAllText(templatePath);
+        DebugLogger.Log($"Template content length: {templateContent.Length} characters");
+        DebugLogger.Log($"Template content (first 500 chars): {templateContent.Substring(0, Math.Min(500, templateContent.Length))}");
+
+        // Create a strongly-typed model instance based on the template name
+        object typedModel = CreateTypedModel(templateName, data);
+        if (typedModel == null)
+        {
+            DebugLogger.Log("Failed to create typed model");
+            return Array.Empty<byte>();
+        }
+
+        DebugLogger.Log($"Model type: {typedModel.GetType().FullName}");
+        DebugLogger.Log($"Model data: {JsonConvert.SerializeObject(typedModel, Formatting.Indented)}");
+
+        // Create a simple memory project for RazorLight
+        var project = new RazorLightInMemoryProject();
+        project.AddTemplate(templateName, templateContent);
 
         var engine = new RazorLightEngineBuilder()
             .UseMemoryCachingProvider()
-            .UseFileSystemProject(projectRoot)
+            .UseProject(project)
             .EnableDebugMode()
             .Build();
 
         try
         {
-            // Inject global styles into the template content
-            templateContent = InjectGlobalStyles(templateContent);
-
             // Render the template into HTML
-            string htmlContent = engine.CompileRenderStringAsync(templateName, templateContent, data).Result;
+            DebugLogger.Log("Starting template rendering...");
+            string htmlContent = engine.CompileRenderAsync(templateName, typedModel).Result;
+            DebugLogger.Log($"HTML content length: {htmlContent.Length} characters");
+            DebugLogger.Log($"HTML content (first 1000 chars): {htmlContent.Substring(0, Math.Min(1000, htmlContent.Length))}");
 
-            // Log the HTML content for debugging
-            Trace.WriteLine($"Generated HTML Content: {htmlContent}");
+            // Save HTML to a file for inspection
+            string htmlFilePath = Path.Combine(projectRoot, "debug_output.html");
+            File.WriteAllText(htmlFilePath, htmlContent);
+            DebugLogger.Log($"Saved HTML content to: {htmlFilePath}");
 
             // Convert the HTML content to a PDF using iText7.pdfhtml
+            DebugLogger.Log("Converting HTML to PDF...");
             using (var ms = new MemoryStream())
             {
-                HtmlConverter.ConvertToPdf(htmlContent, ms);
-                return ms.ToArray();
+                try
+                {
+                    HtmlConverter.ConvertToPdf(htmlContent, ms);
+                    byte[] pdfBytes = ms.ToArray();
+                    DebugLogger.Log($"PDF conversion complete. PDF size: {pdfBytes.Length} bytes");
+                    
+                    // Save PDF to a file for inspection
+                    string pdfFilePath = Path.Combine(projectRoot, "debug_output.pdf");
+                    File.WriteAllBytes(pdfFilePath, pdfBytes);
+                    DebugLogger.Log($"Saved PDF content to: {pdfFilePath}");
+                    
+                    return pdfBytes;
+                }
+                catch (Exception ex)
+                {
+                    DebugLogger.LogException(ex, "PDF Conversion");
+                    return Array.Empty<byte>();
+                }
             }
         }
         catch (Exception ex)
         {
-            Trace.WriteLine($"Error rendering template: {ex}");
+            DebugLogger.LogException(ex, "Template Rendering");
             return Array.Empty<byte>();
         }
     }
 
+    /// <summary>
+    /// Creates a strongly-typed model instance based on the template name and data.
+    /// </summary>
+    /// <param name="templateName">Name of the template</param>
+    /// <param name="data">Raw data object</param>
+    /// <returns>Strongly-typed model instance</returns>
+    private object CreateTypedModel(string templateName, object data)
+    {
+        try
+        {
+            // Convert data to JSON
+            string json = JsonConvert.SerializeObject(data);
 
+            // Determine the model type based on the template name
+            if (templateName.Equals("HealthAndWellness\\TestRazorDataAssessment", StringComparison.OrdinalIgnoreCase))
+            {
+                // For TestRazorDataAssessment template, use TestRazorDataInstance model
+                return JsonConvert.DeserializeObject<iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataModels.TestRazorDataInstance>(json) ?? data;
+            }
+            // For SimpleTest template, no model needed
+            else if (templateName.Equals("SimpleTest", StringComparison.OrdinalIgnoreCase))
+            {
+                // Simple test doesn't need a model, return empty object
+                DebugLogger.Log("Using empty model for SimpleTest template");
+                return new object();
+            }
+
+            // Add more template-to-model mappings as needed
+
+            // If no specific mapping is found, return the original data
+            DebugLogger.Log($"No model type mapping found for template: {templateName}");
+            return data;
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.LogException(ex, "CreateTypedModel");
+            return data; // Return original data instead of null to avoid null reference
+        }
+    }
 
     private bool TemplateExists(string templateName)
     {
-        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName;
+        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty;
 
-        if (projectRoot == null)
+        if (string.IsNullOrEmpty(projectRoot))
         {
             Trace.WriteLine("Unable to determine project root directory.");
             return false;
@@ -258,6 +383,4 @@ public class PDFGenerationService : IPDFGenerationService
 
         return true;
     }
-
-
 }
