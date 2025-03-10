@@ -19,8 +19,8 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
     public PdfTemplateService()
     {
         // Determine the project root directory
-        var projectRoot = System.IO.Directory
-            .GetParent(System.AppContext.BaseDirectory)
+        var projectRoot = System
+            .IO.Directory.GetParent(System.AppContext.BaseDirectory)
             ?.Parent?.Parent?.Parent?.FullName;
 
         if (projectRoot == null)
@@ -34,7 +34,10 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
         }
 
         // Ensure the templates directory exists
-        if (!string.IsNullOrEmpty(_templateBasePath) && !System.IO.Directory.Exists(_templateBasePath))
+        if (
+            !string.IsNullOrEmpty(_templateBasePath)
+            && !System.IO.Directory.Exists(_templateBasePath)
+        )
         {
             System.IO.Directory.CreateDirectory(_templateBasePath);
         }
@@ -57,7 +60,12 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
     public bool TemplateExists(string templateName)
     {
         // First check if the template name is in our registry
-        if (!PdfTemplateRegistry.ValidTemplates.Contains(templateName, System.StringComparer.OrdinalIgnoreCase))
+        if (
+            !PdfTemplateRegistry.ValidTemplates.Contains(
+                templateName,
+                System.StringComparer.OrdinalIgnoreCase
+            )
+        )
         {
             return false;
         }

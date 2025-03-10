@@ -25,7 +25,7 @@ public class RazorService : IRazorService
         _templateService = templateService;
         _logService = logService;
         _templateModelTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
-        
+
         // Initialize the template model types dictionary
         InitializeTemplateModelTypes();
     }
@@ -39,7 +39,7 @@ public class RazorService : IRazorService
         try
         {
             _logService.LogInfo("Initializing RazorLight engine...");
-            
+
             // Create a new RazorLight engine that uses the file system
             var projectRoot = Directory
                 .GetParent(AppContext.BaseDirectory)
@@ -51,15 +51,15 @@ public class RazorService : IRazorService
             }
 
             var templatesDirectory = Path.Combine(projectRoot, "Templates");
-            
+
             _logService.LogInfo($"Templates directory: {templatesDirectory}");
-            
+
             // Create the engine with the template path
             _engine = new RazorLightEngineBuilder()
                 .UseFileSystemProject(templatesDirectory)
                 .UseMemoryCachingProvider()
                 .Build();
-            
+
             // Test the engine by compiling a template
             foreach (var templateName in _templateService.GetAllTemplateNames())
             {
@@ -71,9 +71,13 @@ public class RazorService : IRazorService
                         _logService.LogInfo($"Compiling template: {templateName}");
                         var templateSource = await File.ReadAllTextAsync(templateFilePath);
                         var templateKey = GetTemplateKey(templateName);
-                        
+
                         // Compile the template to ensure it's valid
-                        await _engine.CompileRenderStringAsync(templateKey, templateSource, new { });
+                        await _engine.CompileRenderStringAsync(
+                            templateKey,
+                            templateSource,
+                            new { }
+                        );
                         _logService.LogInfo($"Successfully compiled template: {templateName}");
                     }
                     else
@@ -86,7 +90,7 @@ public class RazorService : IRazorService
                     _logService.LogError($"Error compiling template {templateName}", ex);
                 }
             }
-            
+
             _logService.LogInfo("RazorLight engine initialized successfully.");
         }
         catch (Exception ex)
@@ -116,7 +120,7 @@ public class RazorService : IRazorService
         try
         {
             _logService.LogInfo($"Rendering template: {templateName}");
-            
+
             // Verify the template exists
             if (!_templateService.TemplateExists(templateName))
             {
@@ -134,7 +138,9 @@ public class RazorService : IRazorService
             var expectedModelType = GetModelType(templateName);
             if (expectedModelType != null && model.GetType() != expectedModelType)
             {
-                _logService.LogWarning($"Model type mismatch for template {templateName}. Expected {expectedModelType.Name}, got {model.GetType().Name}");
+                _logService.LogWarning(
+                    $"Model type mismatch for template {templateName}. Expected {expectedModelType.Name}, got {model.GetType().Name}"
+                );
             }
 
             // Read the template content
@@ -142,9 +148,13 @@ public class RazorService : IRazorService
             var templateKey = GetTemplateKey(templateName);
 
             // Render the template
-            var result = await _engine.CompileRenderStringAsync(templateKey, templateContent, model);
+            var result = await _engine.CompileRenderStringAsync(
+                templateKey,
+                templateContent,
+                model
+            );
             _logService.LogInfo($"Successfully rendered template: {templateName}");
-            
+
             return result;
         }
         catch (Exception ex)
@@ -165,7 +175,7 @@ public class RazorService : IRazorService
         {
             return modelType;
         }
-        
+
         return null;
     }
 
@@ -177,32 +187,38 @@ public class RazorService : IRazorService
         try
         {
             _logService.LogInfo("Initializing template model types...");
-            
+
             // Get all types in the assembly
             var assembly = Assembly.GetExecutingAssembly();
             var types = assembly.GetTypes();
-            
+
             // Map template names to model types based on naming convention
             foreach (var templateName in _templateService.GetAllTemplateNames())
             {
                 // Extract the base name without path
                 var baseName = Path.GetFileNameWithoutExtension(templateName.Replace("\\", "."));
-                
+
                 // Look for a type named [BaseName]Instance
                 var instanceTypeName = $"{baseName}Instance";
-                var modelType = types.FirstOrDefault(t => string.Equals(t.Name, instanceTypeName, StringComparison.OrdinalIgnoreCase));
-                
+                var modelType = types.FirstOrDefault(t =>
+                    string.Equals(t.Name, instanceTypeName, StringComparison.OrdinalIgnoreCase)
+                );
+
                 if (modelType != null)
                 {
                     _templateModelTypes[templateName] = modelType;
-                    _logService.LogInfo($"Mapped template '{templateName}' to model type '{modelType.FullName}'.");
+                    _logService.LogInfo(
+                        $"Mapped template '{templateName}' to model type '{modelType.FullName}'."
+                    );
                 }
                 else
                 {
-                    _logService.LogWarning($"Could not find model type for template '{templateName}'. Expected type name: '{instanceTypeName}'.");
+                    _logService.LogWarning(
+                        $"Could not find model type for template '{templateName}'. Expected type name: '{instanceTypeName}'."
+                    );
                 }
             }
-            
+
             _logService.LogInfo($"Initialized {_templateModelTypes.Count} template model types.");
         }
         catch (Exception ex)

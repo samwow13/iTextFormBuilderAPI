@@ -1,5 +1,4 @@
 using iTextFormBuilderAPI.Interfaces;
-using Microsoft.Extensions.Hosting;
 
 namespace iTextFormBuilderAPI.Services;
 
@@ -30,7 +29,7 @@ public class RazorInitializationService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logService.LogInfo("Initializing Razor service...");
-        
+
         try
         {
             // Initialize the Razor engine

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models.APIModels;
 using iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataModels;
@@ -6,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using RazorLight.Razor;
 using Swashbuckle.AspNetCore.Annotations;
-using System.Text.Json;
 
 namespace iTextFormBuilderAPI.Controllers;
 
@@ -27,7 +27,7 @@ public class PDFGenerationController : ControllerBase
     /// <remarks>
     /// This endpoint accepts a template name and associated data to generate a customized PDF document.
     /// The template must exist in the system, and the data structure should match what the template expects.
-    /// 
+    ///
     /// **Example Request (JSON Body):**
     ///
     /// ```json
@@ -54,32 +54,49 @@ public class PDFGenerationController : ControllerBase
         try
         {
             // Check if the template is for TestRazorDataAssessment
-            if (request.TemplateName.Contains("TestRazorDataAssessment", StringComparison.OrdinalIgnoreCase))
+            if (
+                request.TemplateName.Contains(
+                    "TestRazorDataAssessment",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 // Log the incoming data for debugging
                 Console.WriteLine($"Incoming data type: {request.Data.GetType().FullName}");
-                
-                try {
+
+                try
+                {
                     // Convert data to JSON string first
                     string jsonString = System.Text.Json.JsonSerializer.Serialize(request.Data);
                     Console.WriteLine($"Serialized data: {jsonString}");
-                    
+
                     // Then deserialize to the specific model type using Newtonsoft.Json
-                    var modelData = Newtonsoft.Json.JsonConvert.DeserializeObject<TestRazorDataInstance>(jsonString);
-                    
+                    var modelData =
+                        Newtonsoft.Json.JsonConvert.DeserializeObject<TestRazorDataInstance>(
+                            jsonString
+                        );
+
                     // Use the converted data
                     if (modelData != null)
                     {
-                        var result = _pdfGenerationService.GeneratePdf(request.TemplateName, modelData);
-                        
+                        var result = _pdfGenerationService.GeneratePdf(
+                            request.TemplateName,
+                            modelData
+                        );
+
                         if (!result.Success)
                         {
                             return BadRequest(new { Message = result.Message });
                         }
-                        
+
                         if (result.PdfBytes != null && result.PdfBytes.Length > 0)
                         {
-                            return File(result.PdfBytes, "application/pdf", $"{request.TemplateName}.pdf", true);
+                            return File(
+                                result.PdfBytes,
+                                "application/pdf",
+                                $"{request.TemplateName}.pdf",
+                                true
+                            );
                         }
                         else
                         {
@@ -88,19 +105,25 @@ public class PDFGenerationController : ControllerBase
                     }
                     else
                     {
-                        return BadRequest(new { Message = "Failed to convert data to the required model type" });
+                        return BadRequest(
+                            new { Message = "Failed to convert data to the required model type" }
+                        );
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing TestRazorDataAssessment: {ex.Message}");
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                    return BadRequest(new { Message = $"Error processing TestRazorDataAssessment: {ex.Message}" });
+                    return BadRequest(
+                        new { Message = $"Error processing TestRazorDataAssessment: {ex.Message}" }
+                    );
                 }
             }
-            
+
             // For other templates, use the default approach
-            var defaultResult = _pdfGenerationService.GeneratePdf(request.TemplateName, request.Data);
+            var defaultResult = _pdfGenerationService.GeneratePdf(
+                request.TemplateName,
+                request.Data
+            );
 
             if (!defaultResult.Success)
             {
@@ -109,7 +132,12 @@ public class PDFGenerationController : ControllerBase
 
             if (defaultResult.PdfBytes != null && defaultResult.PdfBytes.Length > 0)
             {
-                return File(defaultResult.PdfBytes, "application/pdf", $"{request.TemplateName}.pdf", true);
+                return File(
+                    defaultResult.PdfBytes,
+                    "application/pdf",
+                    $"{request.TemplateName}.pdf",
+                    true
+                );
             }
             else
             {

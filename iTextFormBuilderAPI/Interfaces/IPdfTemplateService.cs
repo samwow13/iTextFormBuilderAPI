@@ -24,7 +24,7 @@ public interface IPdfTemplateService
     /// <param name="templateName">The name of the template.</param>
     /// <returns>The full path to the template file, or an empty string if the template doesn't exist.</returns>
     string GetTemplatePath(string templateName);
-    
+
     /// <summary>
     /// Gets the count of valid templates in the system.
     /// </summary>

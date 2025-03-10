@@ -12,13 +12,13 @@ public interface IRazorService
     /// <param name="model">The model to pass to the template.</param>
     /// <returns>The rendered HTML as a string.</returns>
     Task<string> RenderTemplateAsync(string templateName, object model);
-    
+
     /// <summary>
     /// Initializes the Razor engine.
     /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task InitializeAsync();
-    
+
     /// <summary>
     /// Gets the type of the model for the specified template.
     /// </summary>

@@ -11,7 +11,7 @@ public class LogService : ILogService
 {
     private readonly string _logFilePath;
     private readonly object _lockObject = new object();
-    
+
     /// <summary>
     /// Initializes a new instance of the LogService class.
     /// </summary>
@@ -97,7 +97,7 @@ public class LogService : ILogService
         {
             // Format the log entry
             var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}\r\n";
-            
+
             // Write to the log file with a lock to prevent concurrent access issues
             lock (_lockObject)
             {

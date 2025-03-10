@@ -1,14 +1,14 @@
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
-using RazorLight;
-using RazorLight.Razor;
-using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Text.Json;
+using RazorLight;
+using RazorLight.Razor;
 
 namespace iTextFormBuilderAPI.Services
 {
@@ -25,7 +25,7 @@ namespace iTextFormBuilderAPI.Services
 
         // Store the last 10 PDF generations
         private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();
-        
+
         // Reference to the template service
         private readonly IPdfTemplateService _templateService;
         private readonly IRazorService _razorService;
@@ -37,7 +37,11 @@ namespace iTextFormBuilderAPI.Services
         /// <param name="templateService">The template service for managing PDF templates.</param>
         /// <param name="razorService">The Razor service for rendering templates.</param>
         /// <param name="logService">The log service for logging messages.</param>
-        public PDFGenerationService(IPdfTemplateService templateService, IRazorService razorService, ILogService logService)
+        public PDFGenerationService(
+            IPdfTemplateService templateService,
+            IRazorService razorService,
+            ILogService logService
+        )
         {
             _templateService = templateService;
             _razorService = razorService;
@@ -113,7 +117,7 @@ namespace iTextFormBuilderAPI.Services
                     // Convert string data to appropriate object if needed
                     object processedData = ProcessData(templateName, data);
                     _logService.LogInfo($"Data processed for template: {templateName}");
-                    
+
                     pdfBytes = GeneratePdfFromTemplate(templateName, processedData);
                     _pdfsGenerated++;
                     _lastPDFGenerationTime = DateTime.UtcNow;
@@ -171,31 +175,35 @@ namespace iTextFormBuilderAPI.Services
                 var modelType = _razorService.GetModelType(templateName);
                 if (modelType == null)
                 {
-                    _logService.LogWarning($"No model type found for template '{templateName}'. Using data as is.");
+                    _logService.LogWarning(
+                        $"No model type found for template '{templateName}'. Using data as is."
+                    );
                     return data;
                 }
-                
+
                 // If data is already the correct type, return it as is
                 if (data.GetType() == modelType)
                 {
                     _logService.LogInfo($"Data is already of the correct type: {modelType.Name}");
                     return data;
                 }
-                
+
                 // If data is a string, try to deserialize it
                 if (data is string stringData)
                 {
                     if (string.IsNullOrEmpty(stringData))
                     {
-                        _logService.LogWarning($"Empty string data provided for template '{templateName}'");
+                        _logService.LogWarning(
+                            $"Empty string data provided for template '{templateName}'"
+                        );
                         return Activator.CreateInstance(modelType) ?? data;
                     }
-                    
+
                     _logService.LogInfo($"Converting string data to {modelType.Name}");
                     var result = JsonConvert.DeserializeObject(stringData, modelType);
                     return result ?? Activator.CreateInstance(modelType) ?? data;
                 }
-                
+
                 // If data is a JObject or other JSON structure, convert it to the target type
                 if (data is JObject || data is JArray || data is JToken)
                 {
@@ -205,11 +213,11 @@ namespace iTextFormBuilderAPI.Services
                     {
                         return Activator.CreateInstance(modelType) ?? data;
                     }
-                    
+
                     var result = JsonConvert.DeserializeObject(jsonString, modelType);
                     return result ?? Activator.CreateInstance(modelType) ?? data;
                 }
-                
+
                 // If data is a JsonElement, convert it to the target type
                 if (data is JsonElement jsonElement)
                 {
@@ -219,56 +227,74 @@ namespace iTextFormBuilderAPI.Services
                     {
                         return Activator.CreateInstance(modelType) ?? data;
                     }
-                    
+
                     try
                     {
                         // First try with Newtonsoft.Json
                         var settings = new JsonSerializerSettings
                         {
-                            Error = (sender, args) => { args.ErrorContext.Handled = true; },
+                            Error = (sender, args) =>
+                            {
+                                args.ErrorContext.Handled = true;
+                            },
                             NullValueHandling = NullValueHandling.Ignore,
-                            MissingMemberHandling = MissingMemberHandling.Ignore
+                            MissingMemberHandling = MissingMemberHandling.Ignore,
                         };
-                        
+
                         var result = JsonConvert.DeserializeObject(jsonText, modelType, settings);
                         if (result != null)
                         {
-                            _logService.LogInfo($"Successfully converted JsonElement to {modelType.Name} using Newtonsoft.Json");
+                            _logService.LogInfo(
+                                $"Successfully converted JsonElement to {modelType.Name} using Newtonsoft.Json"
+                            );
                             return result;
                         }
-                        
+
                         // If that fails, try with System.Text.Json
                         var options = new System.Text.Json.JsonSerializerOptions
                         {
-                            PropertyNameCaseInsensitive = true
+                            PropertyNameCaseInsensitive = true,
                         };
-                        
-                        result = System.Text.Json.JsonSerializer.Deserialize(jsonText, modelType, options);
+
+                        result = System.Text.Json.JsonSerializer.Deserialize(
+                            jsonText,
+                            modelType,
+                            options
+                        );
                         if (result != null)
                         {
-                            _logService.LogInfo($"Successfully converted JsonElement to {modelType.Name} using System.Text.Json");
+                            _logService.LogInfo(
+                                $"Successfully converted JsonElement to {modelType.Name} using System.Text.Json"
+                            );
                             return result;
                         }
-                        
+
                         // If both fail, create a new instance and manually map properties
-                        _logService.LogWarning($"Failed to deserialize JsonElement to {modelType.Name} using standard methods. Attempting manual mapping.");
+                        _logService.LogWarning(
+                            $"Failed to deserialize JsonElement to {modelType.Name} using standard methods. Attempting manual mapping."
+                        );
                         return Activator.CreateInstance(modelType) ?? data;
                     }
                     catch (Exception ex)
                     {
-                        _logService.LogError($"Error converting JsonElement to {modelType.Name}: {ex.Message}", ex);
+                        _logService.LogError(
+                            $"Error converting JsonElement to {modelType.Name}: {ex.Message}",
+                            ex
+                        );
                         return Activator.CreateInstance(modelType) ?? data;
                     }
                 }
-                
+
                 // Otherwise, serialize and deserialize to convert between types
-                _logService.LogInfo($"Converting {data.GetType().Name} to {modelType.Name} via serialization");
+                _logService.LogInfo(
+                    $"Converting {data.GetType().Name} to {modelType.Name} via serialization"
+                );
                 var json = JsonConvert.SerializeObject(data);
                 if (string.IsNullOrEmpty(json))
                 {
                     return Activator.CreateInstance(modelType) ?? data;
                 }
-                
+
                 var deserializedResult = JsonConvert.DeserializeObject(json, modelType);
                 return deserializedResult ?? Activator.CreateInstance(modelType) ?? data;
             }
@@ -289,55 +315,76 @@ namespace iTextFormBuilderAPI.Services
         private byte[] GeneratePdfFromTemplate(string templateName, object data)
         {
             _logService.LogInfo($"Generating PDF from template: {templateName}");
-            
+
             if (!_templateService.TemplateExists(templateName))
             {
                 _logService.LogError($"Template '{templateName}' does not exist.");
                 return Array.Empty<byte>();
             }
-            
+
             try
             {
                 // Get the model type for the template
                 var modelType = _razorService.GetModelType(templateName);
-                _logService.LogInfo($"Model type for template '{templateName}': {(modelType != null ? modelType.Name : "Unknown")}");
-                
+                _logService.LogInfo(
+                    $"Model type for template '{templateName}': {(modelType != null ? modelType.Name : "Unknown")}"
+                );
+
                 // Render the template using Razor
-                var htmlContent = _razorService.RenderTemplateAsync(templateName, data).GetAwaiter().GetResult();
-                _logService.LogInfo($"Template '{templateName}' rendered successfully. HTML length: {htmlContent.Length} characters");
-                
+                var htmlContent = _razorService
+                    .RenderTemplateAsync(templateName, data)
+                    .GetAwaiter()
+                    .GetResult();
+                _logService.LogInfo(
+                    $"Template '{templateName}' rendered successfully. HTML length: {htmlContent.Length} characters"
+                );
+
                 // Convert HTML string directly to PDF using a different approach
-                try 
+                try
                 {
                     // Save HTML to temp file to avoid any stream closing issues
-                    string tempHtmlPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.html");
+                    string tempHtmlPath = Path.Combine(
+                        Path.GetTempPath(),
+                        $"{Guid.NewGuid()}.html"
+                    );
                     string tempPdfPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
-                    
+
                     try
                     {
                         // Write HTML to temp file
                         File.WriteAllText(tempHtmlPath, htmlContent);
                         _logService.LogInfo($"Wrote HTML to temp file: {tempHtmlPath}");
-                        
+
                         // Use iText's API to convert from HTML file to PDF file
                         // Use a FileStream that's guaranteed to be properly disposed
-                        using (FileStream pdfFileStream = new FileStream(tempPdfPath, FileMode.Create))
+                        using (
+                            FileStream pdfFileStream = new FileStream(tempPdfPath, FileMode.Create)
+                        )
                         {
                             // Convert the HTML to PDF
                             // The problem is that we're passing the file path directly, which
                             // iText might be interpreting as HTML content rather than a path
                             // Fix: Use explicit FileStream for input rather than just the path string
-                            using (FileStream htmlFileStream = new FileStream(tempHtmlPath, FileMode.Open))
+                            using (
+                                FileStream htmlFileStream = new FileStream(
+                                    tempHtmlPath,
+                                    FileMode.Open
+                                )
+                            )
                             {
                                 HtmlConverter.ConvertToPdf(htmlFileStream, pdfFileStream);
-                                _logService.LogInfo($"HTML converted to PDF successfully using file-based approach");
+                                _logService.LogInfo(
+                                    $"HTML converted to PDF successfully using file-based approach"
+                                );
                             }
                         }
-                        
+
                         // Read resulting PDF file
                         byte[] pdfBytes = File.ReadAllBytes(tempPdfPath);
-                        _logService.LogInfo($"Read PDF from temp file: {tempPdfPath}, size: {pdfBytes.Length} bytes");
-                        
+                        _logService.LogInfo(
+                            $"Read PDF from temp file: {tempPdfPath}, size: {pdfBytes.Length} bytes"
+                        );
+
                         return pdfBytes;
                     }
                     finally
@@ -347,7 +394,7 @@ namespace iTextFormBuilderAPI.Services
                         {
                             if (File.Exists(tempHtmlPath))
                                 File.Delete(tempHtmlPath);
-                                
+
                             if (File.Exists(tempPdfPath))
                                 File.Delete(tempPdfPath);
                         }
@@ -369,7 +416,7 @@ namespace iTextFormBuilderAPI.Services
                 throw; // Re-throw to be handled by the calling method
             }
         }
-        
+
         /// <summary>
         /// Generates a dummy PDF for testing purposes.
         /// </summary>
