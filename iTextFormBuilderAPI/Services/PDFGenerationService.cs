@@ -324,8 +324,14 @@ namespace iTextFormBuilderAPI.Services
                         using (FileStream pdfFileStream = new FileStream(tempPdfPath, FileMode.Create))
                         {
                             // Convert the HTML to PDF
-                            HtmlConverter.ConvertToPdf(tempHtmlPath, pdfFileStream);
-                            _logService.LogInfo($"HTML converted to PDF successfully using file-based approach");
+                            // The problem is that we're passing the file path directly, which
+                            // iText might be interpreting as HTML content rather than a path
+                            // Fix: Use explicit FileStream for input rather than just the path string
+                            using (FileStream htmlFileStream = new FileStream(tempHtmlPath, FileMode.Open))
+                            {
+                                HtmlConverter.ConvertToPdf(htmlFileStream, pdfFileStream);
+                                _logService.LogInfo($"HTML converted to PDF successfully using file-based approach");
+                            }
                         }
                         
                         // Read resulting PDF file
