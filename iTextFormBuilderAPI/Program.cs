@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using iTextFormBuilderAPI.Interfaces;
+using iTextFormBuilderAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,8 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Register services for dependency injection
-builder.Services.AddScoped<iTextFormBuilderAPI.Interfaces.IPDFGenerationService, iTextFormBuilderAPI.Services.PDFGenerationService>();
+builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
+builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
 
 var app = builder.Build();
 
