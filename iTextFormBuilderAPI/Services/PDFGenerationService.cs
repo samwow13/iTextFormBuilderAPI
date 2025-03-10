@@ -16,11 +16,7 @@ public class PDFGenerationService : IPDFGenerationService
     private static DateTime? _lastPDFGenerationTime = null;
     private static string _lastPDFGenerationStatus = "N/A";
     private static readonly Stopwatch _uptime = Stopwatch.StartNew();
-    private readonly string _globalStylesPath = Path.Combine(
-        Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName
-            ?? string.Empty,
-        "Templates\\globalStyles.css"
-    );
+
 
     // Store the last 10 PDF generations
     private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();

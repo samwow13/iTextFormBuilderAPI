@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -10,7 +14,6 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Register services for dependency injection
-builder.Services.AddSingleton<iTextFormBuilderAPI.Interfaces.IRazorTemplateService, iTextFormBuilderAPI.Services.RazorTemplateService>();
 builder.Services.AddScoped<iTextFormBuilderAPI.Interfaces.IPDFGenerationService, iTextFormBuilderAPI.Services.PDFGenerationService>();
 
 var app = builder.Build();
