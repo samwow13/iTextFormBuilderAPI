@@ -1,9 +1,12 @@
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models.APIModels;
+using iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataModels;
 using iTextFormBuilderAPI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using RazorLight.Razor;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Text.Json;
 
 namespace iTextFormBuilderAPI.Controllers;
 
@@ -48,14 +51,75 @@ public class PDFGenerationController : ControllerBase
     )]
     public IActionResult GeneratePdf([FromBody] PdfRequest request)
     {
-        var result = _pdfGenerationService.GeneratePdf(request.TemplateName, request.Data);
-
-        if (!result.Success)
+        try
         {
-            return BadRequest(new { Message = result.Message });
-        }
+            // Check if the template is for TestRazorDataAssessment
+            if (request.TemplateName.Contains("TestRazorDataAssessment", StringComparison.OrdinalIgnoreCase))
+            {
+                // Log the incoming data for debugging
+                Console.WriteLine($"Incoming data type: {request.Data.GetType().FullName}");
+                
+                try {
+                    // Convert data to JSON string first
+                    string jsonString = System.Text.Json.JsonSerializer.Serialize(request.Data);
+                    Console.WriteLine($"Serialized data: {jsonString}");
+                    
+                    // Then deserialize to the specific model type using Newtonsoft.Json
+                    var modelData = Newtonsoft.Json.JsonConvert.DeserializeObject<TestRazorDataInstance>(jsonString);
+                    
+                    // Use the converted data
+                    if (modelData != null)
+                    {
+                        var result = _pdfGenerationService.GeneratePdf(request.TemplateName, modelData);
+                        
+                        if (!result.Success)
+                        {
+                            return BadRequest(new { Message = result.Message });
+                        }
+                        
+                        if (result.PdfBytes != null && result.PdfBytes.Length > 0)
+                        {
+                            return File(result.PdfBytes, "application/pdf", $"{request.TemplateName}.pdf", true);
+                        }
+                        else
+                        {
+                            return BadRequest(new { Message = "Generated PDF has no content" });
+                        }
+                    }
+                    else
+                    {
+                        return BadRequest(new { Message = "Failed to convert data to the required model type" });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing TestRazorDataAssessment: {ex.Message}");
+                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    return BadRequest(new { Message = $"Error processing TestRazorDataAssessment: {ex.Message}" });
+                }
+            }
+            
+            // For other templates, use the default approach
+            var defaultResult = _pdfGenerationService.GeneratePdf(request.TemplateName, request.Data);
 
-        return File(result.PdfBytes, "application/pdf", $"{request.TemplateName}.pdf", true);
+            if (!defaultResult.Success)
+            {
+                return BadRequest(new { Message = defaultResult.Message });
+            }
+
+            if (defaultResult.PdfBytes != null && defaultResult.PdfBytes.Length > 0)
+            {
+                return File(defaultResult.PdfBytes, "application/pdf", $"{request.TemplateName}.pdf", true);
+            }
+            else
+            {
+                return BadRequest(new { Message = "Generated PDF has no content" });
+            }
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = $"Error processing request: {ex.Message}" });
+        }
     }
 }
 

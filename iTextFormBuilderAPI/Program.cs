@@ -16,8 +16,13 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 // Register services for dependency injection
+builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
+builder.Services.AddSingleton<IRazorService, RazorService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
+
+// Initialize the Razor service
+builder.Services.AddHostedService<iTextFormBuilderAPI.Services.RazorInitializationService>();
 
 var app = builder.Build();
 
