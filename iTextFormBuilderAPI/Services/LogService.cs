@@ -28,15 +28,11 @@ public class LogService : ILogService
             projectRoot = Directory.GetCurrentDirectory();
         }
 
-        // Create the logs directory if it doesn't exist
-        var logsDirectory = Path.Combine(projectRoot, "Logs");
-        if (!Directory.Exists(logsDirectory))
-        {
-            Directory.CreateDirectory(logsDirectory);
-        }
-
-        // Set the log file path with the current date
-        _logFilePath = Path.Combine(logsDirectory, $"app_log_{DateTime.Now:yyyy-MM-dd}.log");
+        // Set the log file path directly in the root directory
+        _logFilePath = Path.Combine(projectRoot, $"app_log_{DateTime.Now:yyyy-MM-dd}.log");
+        
+        // Log the location of the log file
+        Console.WriteLine($"Log file will be written to: {_logFilePath}");
     }
 
     /// <summary>

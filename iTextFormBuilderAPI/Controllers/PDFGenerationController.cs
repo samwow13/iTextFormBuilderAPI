@@ -15,10 +15,24 @@ namespace iTextFormBuilderAPI.Controllers;
 public class PDFGenerationController : ControllerBase
 {
     private readonly IPDFGenerationService _pdfGenerationService;
+    private readonly IRazorService _razorService;
+    private readonly ILogService _logService;
 
-    public PDFGenerationController(IPDFGenerationService pdfGenerationService)
+    /// <summary>
+    /// Initializes a new instance of the PDFGenerationController class.
+    /// </summary>
+    /// <param name="pdfGenerationService">The PDF generation service.</param>
+    /// <param name="razorService">The Razor templating service.</param>
+    /// <param name="logService">The logging service.</param>
+    public PDFGenerationController(
+        IPDFGenerationService pdfGenerationService,
+        IRazorService razorService,
+        ILogService logService
+    )
     {
         _pdfGenerationService = pdfGenerationService;
+        _razorService = razorService;
+        _logService = logService;
     }
 
     /// <summary>
@@ -53,28 +67,24 @@ public class PDFGenerationController : ControllerBase
     {
         try
         {
-            // Check if the template is for TestRazorDataAssessment
-            if (
-                request.TemplateName.Contains(
-                    "TestRazorDataAssessment",
-                    StringComparison.OrdinalIgnoreCase
-                )
-            )
+            _logService.LogInfo($"Processing PDF generation request for template: {request.TemplateName}");
+            _logService.LogInfo($"Incoming data type: {request.Data.GetType().FullName}");
+
+            // Try to obtain the model type for this template
+            var modelType = _razorService.GetModelType(request.TemplateName);
+
+            if (modelType != null)
             {
-                // Log the incoming data for debugging
-                Console.WriteLine($"Incoming data type: {request.Data.GetType().FullName}");
+                _logService.LogInfo($"Found model type {modelType.FullName} for template {request.TemplateName}");
 
                 try
                 {
                     // Convert data to JSON string first
                     string jsonString = System.Text.Json.JsonSerializer.Serialize(request.Data);
-                    Console.WriteLine($"Serialized data: {jsonString}");
+                    _logService.LogDebug($"Serialized data: {jsonString}");
 
                     // Then deserialize to the specific model type using Newtonsoft.Json
-                    var modelData =
-                        Newtonsoft.Json.JsonConvert.DeserializeObject<TestRazorDataInstance>(
-                            jsonString
-                        );
+                    var modelData = JsonConvert.DeserializeObject(jsonString, modelType);
 
                     // Use the converted data
                     if (modelData != null)
@@ -86,7 +96,7 @@ public class PDFGenerationController : ControllerBase
 
                         if (!result.Success)
                         {
-                            return BadRequest(new { Message = result.Message });
+                            return BadRequest(new ErrorResponse { Message = result.Message });
                         }
 
                         if (result.PdfBytes != null && result.PdfBytes.Length > 0)
@@ -100,26 +110,30 @@ public class PDFGenerationController : ControllerBase
                         }
                         else
                         {
-                            return BadRequest(new { Message = "Generated PDF has no content" });
+                            return BadRequest(new ErrorResponse { Message = "Generated PDF has no content" });
                         }
                     }
                     else
                     {
                         return BadRequest(
-                            new { Message = "Failed to convert data to the required model type" }
+                            new ErrorResponse { Message = "Failed to convert data to the required model type" }
                         );
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    _logService.LogError($"Error converting data to model type {modelType.FullName}", ex);
                     return BadRequest(
-                        new { Message = $"Error processing TestRazorDataAssessment: {ex.Message}" }
+                        new ErrorResponse { Message = $"Error processing data: {ex.Message}" }
                     );
                 }
             }
+            else
+            {
+                _logService.LogInfo($"No specific model type found for template {request.TemplateName}, using default approach");
+            }
 
-            // For other templates, use the default approach
+            // For templates without a specific model type, or if model conversion failed, use the default approach
             var defaultResult = _pdfGenerationService.GeneratePdf(
                 request.TemplateName,
                 request.Data
@@ -127,7 +141,7 @@ public class PDFGenerationController : ControllerBase
 
             if (!defaultResult.Success)
             {
-                return BadRequest(new { Message = defaultResult.Message });
+                return BadRequest(new ErrorResponse { Message = defaultResult.Message });
             }
 
             if (defaultResult.PdfBytes != null && defaultResult.PdfBytes.Length > 0)
@@ -141,12 +155,13 @@ public class PDFGenerationController : ControllerBase
             }
             else
             {
-                return BadRequest(new { Message = "Generated PDF has no content" });
+                return BadRequest(new ErrorResponse { Message = "Generated PDF has no content" });
             }
         }
         catch (Exception ex)
         {
-            return BadRequest(new { Message = $"Error processing request: {ex.Message}" });
+            _logService.LogError("Error in GeneratePdf endpoint", ex);
+            return BadRequest(new ErrorResponse { Message = $"Error processing request: {ex.Message}" });
         }
     }
 }

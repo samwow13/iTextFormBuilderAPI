@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Utilities;
 
@@ -9,37 +8,38 @@ namespace iTextFormBuilderAPI.Services;
 /// Service responsible for managing PDF templates, including tracking available templates
 /// and validating template existence.
 /// </summary>
-public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateService
+public class PdfTemplateService : IPdfTemplateService
 {
     private readonly string _templateBasePath;
+    private readonly ILogService? _logService;
 
     /// <summary>
     /// Initializes a new instance of the PdfTemplateService class.
     /// </summary>
-    public PdfTemplateService()
+    /// <param name="logService">Optional log service for logging messages.</param>
+    public PdfTemplateService(ILogService? logService = null)
     {
+        _logService = logService;
+
         // Determine the project root directory
-        var projectRoot = System
-            .IO.Directory.GetParent(System.AppContext.BaseDirectory)
+        var projectRoot = Directory
+            .GetParent(AppContext.BaseDirectory)
             ?.Parent?.Parent?.Parent?.FullName;
 
         if (projectRoot == null)
         {
-            System.Diagnostics.Trace.WriteLine("Unable to determine project root directory.");
+            Trace.WriteLine("Unable to determine project root directory.");
             _templateBasePath = string.Empty;
         }
         else
         {
-            _templateBasePath = System.IO.Path.Combine(projectRoot, "Templates");
+            _templateBasePath = Path.Combine(projectRoot, "Templates");
         }
 
         // Ensure the templates directory exists
-        if (
-            !string.IsNullOrEmpty(_templateBasePath)
-            && !System.IO.Directory.Exists(_templateBasePath)
-        )
+        if (!string.IsNullOrEmpty(_templateBasePath) && !Directory.Exists(_templateBasePath))
         {
-            System.IO.Directory.CreateDirectory(_templateBasePath);
+            Directory.CreateDirectory(_templateBasePath);
         }
     }
 
@@ -47,7 +47,7 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
     /// Gets all valid template names registered in the system.
     /// </summary>
     /// <returns>A collection of valid template names.</returns>
-    public System.Collections.Generic.IEnumerable<string> GetAllTemplateNames()
+    public IEnumerable<string> GetAllTemplateNames()
     {
         return PdfTemplateRegistry.ValidTemplates;
     }
@@ -59,25 +59,15 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
     /// <returns>True if the template exists, false otherwise.</returns>
     public bool TemplateExists(string templateName)
     {
-        // First check if the template name is in our registry
-        if (
-            !PdfTemplateRegistry.ValidTemplates.Contains(
-                templateName,
-                System.StringComparer.OrdinalIgnoreCase
-            )
-        )
-        {
-            return false;
-        }
+        // Only check if the template name is in our registry
+        // Do not verify file existence here - let that be handled later if needed
+        var exists = PdfTemplateRegistry.ValidTemplates.Contains(
+            templateName,
+            StringComparer.OrdinalIgnoreCase
+        );
 
-        // Then verify the template file actually exists
-        if (string.IsNullOrEmpty(_templateBasePath))
-        {
-            return false;
-        }
-
-        var templatePath = System.IO.Path.Combine(_templateBasePath, $"{templateName}.cshtml");
-        return System.IO.File.Exists(templatePath);
+        _logService?.LogInfo($"Template '{templateName}' exists in registry: {exists}");
+        return exists;
     }
 
     /// <summary>
@@ -87,12 +77,94 @@ public class PdfTemplateService : iTextFormBuilderAPI.Interfaces.IPdfTemplateSer
     /// <returns>The full path to the template file, or an empty string if the template doesn't exist.</returns>
     public string GetTemplatePath(string templateName)
     {
-        if (!TemplateExists(templateName))
+        // Check if the template is in our registry but don't look for the file yet
+        if (
+            !PdfTemplateRegistry.ValidTemplates.Contains(
+                templateName,
+                StringComparer.OrdinalIgnoreCase
+            )
+        )
         {
+            _logService?.LogWarning($"Template '{templateName}' not found in registry");
             return string.Empty;
         }
 
-        return System.IO.Path.Combine(_templateBasePath, $"{templateName}.cshtml");
+        // For templates with a directory structure like "HealthAndWellness\TestRazor",
+        // we need to look for "Templates\HealthAndWellness\TestRazorDataAssessment.cshtml"
+        string filePath;
+
+        if (templateName.Contains("\\"))
+        {
+            // Extract the directory and filename parts
+            var directory = Path.GetDirectoryName(templateName);
+            var baseName = Path.GetFileName(templateName);
+
+            // Try multiple naming patterns for the template file
+            var possibleFileNames = new[]
+            {
+                $"{baseName}DataAssessment.cshtml", // Format: TestRazorDataAssessment.cshtml
+                $"{baseName}Assessment.cshtml" // Format: TestRazorAssessment.cshtml
+            };
+
+            bool fileFound = false;
+            filePath = string.Empty;
+
+            foreach (var fileName in possibleFileNames)
+            {
+                var testPath = Path.Combine(_templateBasePath, directory ?? string.Empty, fileName);
+                _logService?.LogInfo($"Looking for template at: {testPath}");
+
+                if (File.Exists(testPath))
+                {
+                    filePath = testPath;
+                    fileFound = true;
+                    _logService?.LogInfo($"Found template at: {filePath}");
+                    break;
+                }
+            }
+
+            if (!fileFound)
+            {
+                _logService?.LogWarning(
+                    $"No template file found for '{templateName}' in directory '{directory}' with base name '{baseName}'"
+                );
+                return string.Empty;
+            }
+        }
+        else
+        {
+            // For flat templates (no directory), try both naming conventions
+            var possibleFileNames = new[]
+            {
+                $"{templateName}DataAssessment.cshtml",
+                $"{templateName}Assessment.cshtml",
+            };
+
+            bool fileFound = false;
+            filePath = string.Empty;
+
+            foreach (var fileName in possibleFileNames)
+            {
+                var testPath = Path.Combine(_templateBasePath, fileName);
+                _logService?.LogInfo($"Looking for template at: {testPath}");
+
+                if (File.Exists(testPath))
+                {
+                    filePath = testPath;
+                    fileFound = true;
+                    _logService?.LogInfo($"Found template at: {filePath}");
+                    break;
+                }
+            }
+
+            if (!fileFound)
+            {
+                _logService?.LogWarning($"No template file found for '{templateName}'");
+                return string.Empty;
+            }
+        }
+
+        return filePath;
     }
 
     /// <summary>

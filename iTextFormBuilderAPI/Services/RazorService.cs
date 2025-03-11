@@ -195,27 +195,101 @@ public class RazorService : IRazorService
             // Map template names to model types based on naming convention
             foreach (var templateName in _templateService.GetAllTemplateNames())
             {
-                // Extract the base name without path
-                var baseName = Path.GetFileNameWithoutExtension(templateName.Replace("\\", "."));
-
-                // Look for a type named [BaseName]Instance
-                var instanceTypeName = $"{baseName}Instance";
-                var modelType = types.FirstOrDefault(t =>
-                    string.Equals(t.Name, instanceTypeName, StringComparison.OrdinalIgnoreCase)
-                );
-
-                if (modelType != null)
+                try
                 {
-                    _templateModelTypes[templateName] = modelType;
+                    // Extract the base name without path and extension
+                    var baseName = Path.GetFileNameWithoutExtension(templateName);
+
+                    // Extract the directory path if it exists
+                    var directoryPath = Path.GetDirectoryName(templateName)?.Replace("\\", ".");
+
+                    // For templates like "HealthAndWellness\TestRazor", we need to find model "Models.HealthAndWellness.TestRazorDataInstance"
+                    // or "iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataInstance"
+                    var possibleNamespaces = new List<string>();
+
+                    // Build possible namespace variations
+                    if (!string.IsNullOrEmpty(directoryPath))
+                    {
+                        // Option 1: Models.Directory.FileDataInstance
+                        possibleNamespaces.Add($"Models.{directoryPath}");
+
+                        // Option 2: Full assembly namespace + Models.Directory
+                        possibleNamespaces.Add($"{assembly.GetName().Name}.Models.{directoryPath}");
+                    }
+                    else
+                    {
+                        // Option 1: Models
+                        possibleNamespaces.Add("Models");
+
+                        // Option 2: Full assembly namespace + Models
+                        possibleNamespaces.Add($"{assembly.GetName().Name}.Models");
+                    }
+
+                    // The model name is always [BaseName]DataInstance
+                    var modelName = $"{baseName}DataInstance";
                     _logService.LogInfo(
-                        $"Mapped template '{templateName}' to model type '{modelType.FullName}'."
+                        $"Looking for model type: {modelName} in namespaces: {string.Join(", ", possibleNamespaces)}"
                     );
+
+                    // Search through all types to find matching model
+                    Type? modelType = null;
+                    foreach (var ns in possibleNamespaces)
+                    {
+                        // Try to find by full name (namespace + type name)
+                        var fullTypeName = $"{ns}.{modelName}";
+                        modelType = types.FirstOrDefault(t =>
+                            string.Equals(
+                                t.FullName,
+                                fullTypeName,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                            || string.Equals(t.Name, modelName, StringComparison.OrdinalIgnoreCase)
+                                && t.Namespace != null
+                                && t.Namespace.StartsWith(ns)
+                        );
+
+                        if (modelType != null)
+                        {
+                            _logService.LogInfo(
+                                $"Found model type {modelType.FullName} in namespace {ns}"
+                            );
+                            break;
+                        }
+                    }
+
+                    if (modelType != null)
+                    {
+                        _templateModelTypes[templateName] = modelType;
+                        _logService.LogInfo(
+                            $"Mapped template '{templateName}' to model type '{modelType.FullName}'."
+                        );
+                    }
+                    else
+                    {
+                        // Try one last approach - just look for the class name directly
+                        modelType = types.FirstOrDefault(t =>
+                            string.Equals(t.Name, modelName, StringComparison.OrdinalIgnoreCase)
+                        );
+
+                        if (modelType != null)
+                        {
+                            _templateModelTypes[templateName] = modelType;
+                            _logService.LogInfo(
+                                $"Mapped template '{templateName}' to model type '{modelType.FullName}' by name match only."
+                            );
+                        }
+                        else
+                        {
+                            _logService.LogWarning(
+                                $"Could not find model type for template '{templateName}'. "
+                                    + $"Looked for '{modelName}' in namespaces: {string.Join(", ", possibleNamespaces)}."
+                            );
+                        }
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logService.LogWarning(
-                        $"Could not find model type for template '{templateName}'. Expected type name: '{instanceTypeName}'."
-                    );
+                    _logService.LogError($"Error processing template '{templateName}'", ex);
                 }
             }
 
