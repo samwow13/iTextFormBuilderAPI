@@ -7,7 +7,6 @@ public static class PdfTemplateRegistry
     /// </summary>
     public static readonly HashSet<string> ValidTemplates = new()
     {
-        "HealthAndWellness\\TestRazor",
         "Hotline\\HotlineTesting",
     };
 }

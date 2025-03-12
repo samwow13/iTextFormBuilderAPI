@@ -1,7 +1,6 @@
 using System.Text.Json;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models.APIModels;
-using iTextFormBuilderAPI.Models.HealthAndWellness.TestRazorDataModels;
 using iTextFormBuilderAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -52,7 +51,6 @@ public class PDFGenerationController : ControllerBase
     /// ```
     ///
     /// **Available templates:**
-    /// - HealthAndWellness\TestRazor
     /// - Hotline\\HotlineTesting
     /// </remarks>
     /// <param name="request">The request containing the template name and data.</param>
