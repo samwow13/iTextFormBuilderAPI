@@ -176,7 +176,7 @@ namespace iTextFormBuilderAPI.Services
                 if (modelType == null)
                 {
                     _logService.LogWarning(
-                        $"No model type found for template '{templateName}' (Models\\{(templateName.Contains("\\") ? templateName : templateName)}\\{Path.GetFileName(templateName)}Instance.cs or Models\\{(templateName.Contains("\\") ? templateName : templateName)}\\{Path.GetFileName(templateName)}DataInstance.cs). Using data as is."
+                        $"No model type found for template '{templateName}' (Models\\{(templateName.Contains("\\") ? templateName : templateName)}\\{Path.GetFileName(templateName)}Instance.cs. Using data as is."
                     );
                     return data;
                 }
