@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text;
 using iTextFormBuilderAPI.Interfaces;
 
@@ -11,7 +10,7 @@ public class LogService : ILogService
 {
     private readonly string _logFilePath;
     private readonly object _lockObject = new object();
-    
+
     // Static flag to track if the log has been cleared in the current session
     private static bool _logClearedThisSession = false;
 
@@ -33,7 +32,7 @@ public class LogService : ILogService
 
         // Set the log file path directly in the root directory
         _logFilePath = Path.Combine(projectRoot, $"app_log_{DateTime.Now:yyyy-MM-dd}.log");
-        
+
         // Log the location of the log file
         Console.WriteLine($"Log file will be written to: {_logFilePath}");
     }
@@ -104,10 +103,14 @@ public class LogService : ILogService
                 if (!_logClearedThisSession)
                 {
                     // Create or overwrite the file (clearing previous content)
-                    File.WriteAllText(_logFilePath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] Log file cleared for new session\r\n", Encoding.UTF8);
+                    File.WriteAllText(
+                        _logFilePath,
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] Log file cleared for new session\r\n",
+                        Encoding.UTF8
+                    );
                     _logClearedThisSession = true;
                 }
-                
+
                 // Append the new log entry
                 File.AppendAllText(_logFilePath, logEntry, Encoding.UTF8);
             }
@@ -119,7 +122,7 @@ public class LogService : ILogService
             Console.WriteLine($"Original log message: [{level}] {message}");
         }
     }
-    
+
     /// <summary>
     /// Resets the log clearing flag. Can be called when you want to force the log to clear again.
     /// </summary>

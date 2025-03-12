@@ -15,68 +15,64 @@ namespace iTextFormBuilderAPI.Configuration
             // Only apply to the GeneratePdf operation
             if (context.MethodInfo.Name == "GeneratePdf" && operation.RequestBody != null)
             {
-                // Sample JSON for the TestRazor template
+                // Sample JSON for the Hotline\HotlineTesting template
                 var testRazorJson = @"{
-  ""templateName"": ""HealthAndWellness\\TestRazor"",
+  ""templateName"": ""Hotline\\HotlineTesting"",
   ""data"": {
-    ""user"": {
-      ""id"": 1,
-      ""name"": ""Alice Smith"",
-      ""email"": ""alice@example.com"",
-      ""is_active"": true,
-      ""created_at"": ""2023-03-01T12:34:56Z""
+    ""model"": {
+      ""id"": 1001,
+      ""name"": ""Hotline Assessment Test"",
+      ""description"": ""This is a test instance for Hotline Assessment 1."",
+      ""created_at"": ""2023-09-15T08:00:00Z"",
+      ""is_active"": true
     },
-    ""preferences"": {
-      ""notifications"": {
-        ""email"": true,
-        ""sms"": false,
-        ""push"": true
-      },
-      ""theme"": ""dark"",
-      ""language"": ""en-US""
-    },
-    ""orders"": [
-      {
-        ""order_id"": ""ORD123"",
-        ""amount"": 250.75,
-        ""items"": [
-          {
-            ""item_id"": ""ITM1"",
-            ""name"": ""Product 1"",
-            ""quantity"": 2,
-            ""price"": 50.25
-          },
-          {
-            ""item_id"": ""ITM2"",
-            ""name"": ""Product 2"",
-            ""quantity"": 1,
-            ""price"": 150.25
-          }
-        ],
-        ""status"": ""Completed""
-      },
-      {
-        ""order_id"": ""ORD124"",
-        ""amount"": 100.00,
-        ""items"": [
-          {
-            ""item_id"": ""ITM3"",
-            ""name"": ""Product 3"",
-            ""quantity"": 1,
-            ""price"": 100.00
-          }
-        ],
-        ""status"": ""Pending""
-      }
-    ]
+    ""properties"": {
+      ""sections"": [
+        {
+          ""title"": ""Personal Information"",
+          ""fields"": [
+            {
+              ""name"": ""Full Name"",
+              ""type"": ""string"",
+              ""value"": ""John Doe""
+            },
+            {
+              ""name"": ""Age"",
+              ""type"": ""number"",
+              ""value"": 30
+            }
+          ]
+        },
+        {
+          ""title"": ""Assessment Details"",
+          ""fields"": [
+            {
+              ""name"": ""Score"",
+              ""type"": ""number"",
+              ""value"": 85.5
+            },
+            {
+              ""name"": ""Passed"",
+              ""type"": ""boolean"",
+              ""value"": true
+            },
+            {
+              ""name"": ""Comments"",
+              ""type"": ""string"",
+              ""value"": ""Satisfactory performance.""
+            }
+          ]
+        }
+      ]
+    }
   }
 }";
 
-                // Create example for HealthAndWellness\TestRazor template
+                // Create example for Hotline\HotlineTesting template
                 var testRazorExample = new OpenApiExample
                 {
-                    Summary = "TestRazor Template Example",
-                    Description = "Sample JSON for the HealthAndWellness\\TestRazor template",
+                    Summary = "HotlineTesting Template Example",
+                    Description = "Sample JSON for the Hotline\\HotlineTesting template",
                     Value = OpenApiAnyFactory.CreateFromJson(testRazorJson)
                 };
 
@@ -85,7 +81,7 @@ namespace iTextFormBuilderAPI.Configuration
                 {
                     mediaType.Value.Examples = new Dictionary<string, OpenApiExample>
                     {
-                        { "TestRazorExample", testRazorExample }
+                        { "HotlineTestingExample", testRazorExample }
                     };
                 }
             }

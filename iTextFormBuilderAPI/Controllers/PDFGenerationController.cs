@@ -50,6 +50,10 @@ public class PDFGenerationController : ControllerBase
     ///   "data": { "customerName": "John Doe", "amount": 100 }
     /// }
     /// ```
+    ///
+    /// **Available templates:**
+    /// - HealthAndWellness\TestRazor
+    /// - Hotline\\HotlineTesting
     /// </remarks>
     /// <param name="request">The request containing the template name and data.</param>
     /// <returns>A PDF file if successful, or an error message if the template is not found.</returns>
@@ -67,7 +71,9 @@ public class PDFGenerationController : ControllerBase
     {
         try
         {
-            _logService.LogInfo($"Processing PDF generation request for template: {request.TemplateName}");
+            _logService.LogInfo(
+                $"Processing PDF generation request for template: {request.TemplateName}"
+            );
             _logService.LogInfo($"Incoming data type: {request.Data.GetType().FullName}");
 
             // Try to obtain the model type for this template
@@ -75,7 +81,9 @@ public class PDFGenerationController : ControllerBase
 
             if (modelType != null)
             {
-                _logService.LogInfo($"Found model type {modelType.FullName} for template {request.TemplateName}");
+                _logService.LogInfo(
+                    $"Found model type {modelType.FullName} for template {request.TemplateName}"
+                );
 
                 try
                 {
@@ -110,19 +118,27 @@ public class PDFGenerationController : ControllerBase
                         }
                         else
                         {
-                            return BadRequest(new ErrorResponse { Message = "Generated PDF has no content" });
+                            return BadRequest(
+                                new ErrorResponse { Message = "Generated PDF has no content" }
+                            );
                         }
                     }
                     else
                     {
                         return BadRequest(
-                            new ErrorResponse { Message = "Failed to convert data to the required model type" }
+                            new ErrorResponse
+                            {
+                                Message = "Failed to convert data to the required model type",
+                            }
                         );
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logService.LogError($"Error converting data to model type {modelType.FullName}", ex);
+                    _logService.LogError(
+                        $"Error converting data to model type {modelType.FullName}",
+                        ex
+                    );
                     return BadRequest(
                         new ErrorResponse { Message = $"Error processing data: {ex.Message}" }
                     );
@@ -130,7 +146,9 @@ public class PDFGenerationController : ControllerBase
             }
             else
             {
-                _logService.LogInfo($"No specific model type found for template {request.TemplateName}, using default approach");
+                _logService.LogInfo(
+                    $"No specific model type found for template {request.TemplateName}, using default approach"
+                );
             }
 
             // For templates without a specific model type, or if model conversion failed, use the default approach
@@ -161,7 +179,9 @@ public class PDFGenerationController : ControllerBase
         catch (Exception ex)
         {
             _logService.LogError("Error in GeneratePdf endpoint", ex);
-            return BadRequest(new ErrorResponse { Message = $"Error processing request: {ex.Message}" });
+            return BadRequest(
+                new ErrorResponse { Message = $"Error processing request: {ex.Message}" }
+            );
         }
     }
 }
