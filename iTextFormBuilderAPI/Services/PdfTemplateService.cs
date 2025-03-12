@@ -85,7 +85,9 @@ public class PdfTemplateService : IPdfTemplateService
             )
         )
         {
-            _logService?.LogWarning($"Template '{templateName}' not found in registry");
+            _logService?.LogWarning(
+                $"Template '{templateName}' not found in registry (attempted paths: {Path.Combine(_templateBasePath, templateName)})"
+            );
             return string.Empty;
         }
 
@@ -100,14 +102,16 @@ public class PdfTemplateService : IPdfTemplateService
             var baseName = Path.GetFileName(templateName);
 
             // Try multiple naming patterns for the template file
-            var possibleFileNames = new[]
-            {
+            var possibleFileNames = new[]{
+                $"{baseName}Template.cshtml",    // Format: TestRazorTemplate.cshtml
                 $"{baseName}DataAssessment.cshtml", // Format: TestRazorDataAssessment.cshtml
                 $"{baseName}Assessment.cshtml" // Format: TestRazorAssessment.cshtml
             };
 
             bool fileFound = false;
             filePath = string.Empty;
+
+            _logService?.LogInfo($"Searching for template '{templateName}' in directory '{directory}' with base name '{baseName}'");
 
             foreach (var fileName in possibleFileNames)
             {
@@ -126,7 +130,7 @@ public class PdfTemplateService : IPdfTemplateService
             if (!fileFound)
             {
                 _logService?.LogWarning(
-                    $"No template file found for '{templateName}' in directory '{directory}' with base name '{baseName}'"
+                    $"No template file found for '{templateName}' in directory '{directory}' with base name '{baseName}'. Attempted paths: {string.Join(", ", possibleFileNames.Select(f => Path.Combine(_templateBasePath, directory ?? string.Empty, f)))}"
                 );
                 return string.Empty;
             }
@@ -134,8 +138,8 @@ public class PdfTemplateService : IPdfTemplateService
         else
         {
             // For flat templates (no directory), try both naming conventions
-            var possibleFileNames = new[]
-            {
+            var possibleFileNames = new[]{
+                $"{templateName}Template.cshtml",
                 $"{templateName}DataAssessment.cshtml",
                 $"{templateName}Assessment.cshtml",
             };
@@ -159,7 +163,7 @@ public class PdfTemplateService : IPdfTemplateService
 
             if (!fileFound)
             {
-                _logService?.LogWarning($"No template file found for '{templateName}'");
+                _logService?.LogWarning($"No template file found for '{templateName}'. Attempted paths: {string.Join(", ", possibleFileNames.Select(f => Path.Combine(_templateBasePath, f)))}");
                 return string.Empty;
             }
         }

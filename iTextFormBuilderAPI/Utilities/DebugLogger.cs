@@ -10,7 +10,8 @@ namespace iTextFormBuilderAPI.Utilities
     public static class DebugLogger
     {
         private static readonly string LogFilePath = Path.Combine(
-            Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName ?? string.Empty,
+            Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName
+                ?? string.Empty,
             "debug_logs.txt"
         );
 
@@ -64,7 +65,10 @@ namespace iTextFormBuilderAPI.Utilities
         {
             try
             {
-                File.WriteAllText(LogFilePath, $"Log started at {DateTime.Now}{Environment.NewLine}");
+                File.WriteAllText(
+                    LogFilePath,
+                    $"Log started at {DateTime.Now}{Environment.NewLine}"
+                );
             }
             catch (Exception ex)
             {

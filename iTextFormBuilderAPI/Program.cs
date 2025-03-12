@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Services;
 
@@ -22,7 +19,7 @@ builder.Services.AddSingleton<IRazorService, RazorService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
 
 // Initialize the Razor service
-builder.Services.AddHostedService<iTextFormBuilderAPI.Services.RazorInitializationService>();
+builder.Services.AddHostedService<RazorInitializationService>();
 
 var app = builder.Build();
 

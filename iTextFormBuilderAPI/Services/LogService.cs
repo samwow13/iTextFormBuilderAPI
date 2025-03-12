@@ -11,6 +11,9 @@ public class LogService : ILogService
 {
     private readonly string _logFilePath;
     private readonly object _lockObject = new object();
+    
+    // Static flag to track if the log has been cleared in the current session
+    private static bool _logClearedThisSession = false;
 
     /// <summary>
     /// Initializes a new instance of the LogService class.
@@ -97,6 +100,15 @@ public class LogService : ILogService
             // Write to the log file with a lock to prevent concurrent access issues
             lock (_lockObject)
             {
+                // Clear the log file on first write of the session
+                if (!_logClearedThisSession)
+                {
+                    // Create or overwrite the file (clearing previous content)
+                    File.WriteAllText(_logFilePath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] Log file cleared for new session\r\n", Encoding.UTF8);
+                    _logClearedThisSession = true;
+                }
+                
+                // Append the new log entry
                 File.AppendAllText(_logFilePath, logEntry, Encoding.UTF8);
             }
         }
@@ -106,5 +118,13 @@ public class LogService : ILogService
             Console.WriteLine($"Failed to write to log file: {ex.Message}");
             Console.WriteLine($"Original log message: [{level}] {message}");
         }
+    }
+    
+    /// <summary>
+    /// Resets the log clearing flag. Can be called when you want to force the log to clear again.
+    /// </summary>
+    public static void ResetLogClearingFlag()
+    {
+        _logClearedThisSession = false;
     }
 }

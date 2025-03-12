@@ -4,6 +4,7 @@ public static class PdfTemplateRegistry
 {
     public static readonly HashSet<string> ValidTemplates = new()
     {
-        "Invoice", "Receipt", "Report", "HealthAndWellness\\TestRazor"
+        "HealthAndWellness\\TestRazor",
+        "Hotline\\HotlineTesting",
     };
 }
