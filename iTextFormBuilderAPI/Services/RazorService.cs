@@ -1,7 +1,6 @@
 using System.Reflection;
 using iTextFormBuilderAPI.Interfaces;
 using RazorLight;
-using RazorLight.Razor;
 
 namespace iTextFormBuilderAPI.Services;
 
@@ -82,7 +81,7 @@ public class RazorService : IRazorService
             .GetParent(AppContext.BaseDirectory)
             ?.Parent?.Parent?.Parent?.FullName;
 
-        if (projectRoot == null)
+        if (string.IsNullOrEmpty(projectRoot))
         {
             throw new InvalidOperationException("Unable to determine project root directory.");
         }
@@ -282,38 +281,29 @@ public class RazorService : IRazorService
         }
     }
 
-
+    /// <summary>
+    /// Maps a single template to its corresponding model type by extracting parts of the template name,
+    /// building the full type name, and then searching for the model type in the given types.
+    /// </summary>
+    /// <param name="templateName">The template file name with its path.</param>
+    /// <param name="assembly">The assembly where the model types are defined.</param>
+    /// <param name="types">An array of available types to search for the model.</param>
     private void MapSingleTemplateToModelType(string templateName, Assembly assembly, Type[] types)
     {
-        // Extract the base name without path and extension
-        var baseName = Path.GetFileNameWithoutExtension(templateName);
-
-        // Extract the directory path if it exists
-        var directoryPath = Path.GetDirectoryName(templateName)?.Replace("\\", ".");
+        var baseName = GetBaseName(templateName);
+        var directoryPath = GetDirectoryPath(templateName);
 
         _logService.LogInfo(
             $"Looking for model for template '{templateName}' with baseName '{baseName}' and directoryPath '{directoryPath ?? "<none>"}'"
         );
 
-        // Build the model name and namespace directly
-        var modelName = $"{baseName}Instance";
-        var modelNamespace = !string.IsNullOrEmpty(directoryPath)
-            ? $"{assembly.GetName().Name}.Models.{directoryPath}"
-            : $"{assembly.GetName().Name}.Models";
+        var modelName = GetModelName(baseName);
+        var modelNamespace = GetModelNamespace(assembly, directoryPath!);
+        var fullTypeName = GetFullTypeName(modelNamespace, modelName);
 
-        var fullTypeName = $"{modelNamespace}.{modelName}";
         _logService.LogInfo($"Looking for model type with full name: {fullTypeName}");
 
-        // Find the model type directly
-        var modelType = types.FirstOrDefault(t =>
-            string.Equals(t.FullName, fullTypeName, StringComparison.OrdinalIgnoreCase)
-            || (
-                string.Equals(t.Name, modelName, StringComparison.OrdinalIgnoreCase)
-                && t.Namespace != null
-                && t.Namespace.StartsWith(modelNamespace)
-            )
-        );
-
+        var modelType = FindModelType(types, fullTypeName, modelName, modelNamespace);
         if (modelType != null)
         {
             _templateModelTypes[templateName] = modelType;
@@ -324,10 +314,89 @@ public class RazorService : IRazorService
         else
         {
             _logService.LogWarning(
-                $"Could not find model type for template '{templateName}'. "
-                    + $"Looked for '{baseName}Instance'"
+                $"Could not find model type for template '{templateName}'. Looked for '{modelName}'"
             );
         }
+    }
+
+    /// <summary>
+    /// Extracts the base name from the template file name without its extension.
+    /// </summary>
+    /// <param name="templateName">The full template file name.</param>
+    /// <returns>The base name of the template.</returns>
+    private static string GetBaseName(string templateName)
+    {
+        return Path.GetFileNameWithoutExtension(templateName);
+    }
+
+    /// <summary>
+    /// Extracts the directory path from the template name and converts any directory separators to periods,
+    /// which are more suitable for namespaces.
+    /// </summary>
+    /// <param name="templateName">The full template file name.</param>
+    /// <returns>The directory path formatted as a namespace segment, or null if none exists.</returns>
+    private static string GetDirectoryPath(string templateName)
+    {
+        return Path.GetDirectoryName(templateName)?.Replace("\\", ".")!;
+    }
+
+    /// <summary>
+    /// Constructs the model name by appending 'Instance' to the base name.
+    /// </summary>
+    /// <param name="baseName">The base name of the template.</param>
+    /// <returns>The constructed model name.</returns>
+    private static string GetModelName(string baseName)
+    {
+        return $"{baseName}Instance";
+    }
+
+    /// <summary>
+    /// Builds the model namespace using the assembly name and the optional directory path.
+    /// </summary>
+    /// <param name="assembly">The assembly containing the model definitions.</param>
+    /// <param name="directoryPath">The directory path from the template.</param>
+    /// <returns>The full namespace for the model.</returns>
+    private static string GetModelNamespace(Assembly assembly, string directoryPath)
+    {
+        return !string.IsNullOrEmpty(directoryPath)
+            ? $"{assembly.GetName().Name}.Models.{directoryPath}"
+            : $"{assembly.GetName().Name}.Models";
+    }
+
+    /// <summary>
+    /// Constructs the full type name by combining the model namespace and model name.
+    /// </summary>
+    /// <param name="modelNamespace">The namespace of the model.</param>
+    /// <param name="modelName">The name of the model.</param>
+    /// <returns>The full type name.</returns>
+    private static string GetFullTypeName(string modelNamespace, string modelName)
+    {
+        return $"{modelNamespace}.{modelName}";
+    }
+
+    /// <summary>
+    /// Searches through the provided types for one that matches the full type name or that has the expected model name
+    /// and a namespace that starts with the expected model namespace.
+    /// </summary>
+    /// <param name="types">The list of types to search.</param>
+    /// <param name="fullTypeName">The full type name to search for.</param>
+    /// <param name="modelName">The model name to match.</param>
+    /// <param name="modelNamespace">The expected starting namespace.</param>
+    /// <returns>The matching model type, or null if no match is found.</returns>
+    private static Type? FindModelType(
+        Type[] types,
+        string fullTypeName,
+        string modelName,
+        string modelNamespace
+    )
+    {
+        return types.FirstOrDefault(t =>
+            string.Equals(t.FullName, fullTypeName, StringComparison.OrdinalIgnoreCase)
+            || (
+                string.Equals(t.Name, modelName, StringComparison.OrdinalIgnoreCase)
+                && t.Namespace?.StartsWith(modelNamespace) == true
+            )
+        );
     }
 
     /// <summary>
