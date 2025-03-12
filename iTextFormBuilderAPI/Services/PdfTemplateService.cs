@@ -77,97 +77,61 @@ public class PdfTemplateService : IPdfTemplateService
     /// <returns>The full path to the template file, or an empty string if the template doesn't exist.</returns>
     public string GetTemplatePath(string templateName)
     {
-        // Check if the template is in our registry but don't look for the file yet
-        if (
-            !PdfTemplateRegistry.ValidTemplates.Contains(
-                templateName,
-                StringComparer.OrdinalIgnoreCase
-            )
-        )
+        // Check if the template is in our registry before attempting to locate the file
+        if (!TemplateExists(templateName))
         {
             _logService?.LogWarning(
-                $"Template '{templateName}' not found in registry (attempted paths: {Path.Combine(_templateBasePath, templateName)})"
+                $"Template '{templateName}' not found in registry when attempting to get path"
             );
             return string.Empty;
         }
 
-        // For templates with a directory structure like "HealthAndWellness\TestRazor",
-        // we need to look for "Templates\HealthAndWellness\TestRazorDataAssessment.cshtml"
+        // Build template file path based on whether it has directory structure
+        string fileName;
         string filePath;
 
         if (templateName.Contains("\\"))
         {
-            // Extract the directory and filename parts
+            // For templates with a directory structure like "HealthAndWellness\TestRazor",
+            // Use format: "Templates\HealthAndWellness\TestRazorTemplate.cshtml"
             var directory = Path.GetDirectoryName(templateName);
             var baseName = Path.GetFileName(templateName);
+            fileName = $"{baseName}Template.cshtml";
+            filePath = Path.Combine(_templateBasePath, directory ?? string.Empty, fileName);
 
-            // Try multiple naming patterns for the template file
-            var possibleFileNames = new[]{
-                $"{baseName}Template.cshtml",    // Format: TestRazorTemplate.cshtml
-                $"{baseName}DataAssessment.cshtml", // Format: TestRazorDataAssessment.cshtml
-                $"{baseName}Assessment.cshtml" // Format: TestRazorAssessment.cshtml
-            };
-
-            bool fileFound = false;
-            filePath = string.Empty;
-
-            _logService?.LogInfo($"Searching for template '{templateName}' in directory '{directory}' with base name '{baseName}'");
-
-            foreach (var fileName in possibleFileNames)
-            {
-                var testPath = Path.Combine(_templateBasePath, directory ?? string.Empty, fileName);
-                _logService?.LogInfo($"Looking for template at: {testPath}");
-
-                if (File.Exists(testPath))
-                {
-                    filePath = testPath;
-                    fileFound = true;
-                    _logService?.LogInfo($"Found template at: {filePath}");
-                    break;
-                }
-            }
-
-            if (!fileFound)
-            {
-                _logService?.LogWarning(
-                    $"No template file found for '{templateName}' in directory '{directory}' with base name '{baseName}'. Attempted paths: {string.Join(", ", possibleFileNames.Select(f => Path.Combine(_templateBasePath, directory ?? string.Empty, f)))}"
-                );
-                return string.Empty;
-            }
+            _logService?.LogInfo(
+                $"Searching for template '{templateName}' in directory '{directory}' with base name '{baseName}'"
+            );
         }
         else
         {
-            // For flat templates (no directory), try both naming conventions
-            var possibleFileNames = new[]{
-                $"{templateName}Template.cshtml",
-                $"{templateName}DataAssessment.cshtml",
-                $"{templateName}Assessment.cshtml",
-            };
+            // For flat templates, use format: "Templates\TestRazorTemplate.cshtml"
+            fileName = $"{templateName}Template.cshtml";
+            filePath = Path.Combine(_templateBasePath, fileName);
+        }
+        // Verify file exists and log results
+        _logService?.LogInfo($"Looking for template at: {filePath}");
 
-            bool fileFound = false;
-            filePath = string.Empty;
-
-            foreach (var fileName in possibleFileNames)
+        if (!File.Exists(filePath))
+        {
+            if (templateName.Contains("\\"))
             {
-                var testPath = Path.Combine(_templateBasePath, fileName);
-                _logService?.LogInfo($"Looking for template at: {testPath}");
-
-                if (File.Exists(testPath))
-                {
-                    filePath = testPath;
-                    fileFound = true;
-                    _logService?.LogInfo($"Found template at: {filePath}");
-                    break;
-                }
+                var directory = Path.GetDirectoryName(templateName);
+                var baseName = Path.GetFileName(templateName);
+                _logService?.LogWarning(
+                    $"No template file found for '{templateName}' in directory '{directory}' with base name '{baseName}'. Attempted path: {filePath}"
+                );
             }
-
-            if (!fileFound)
+            else
             {
-                _logService?.LogWarning($"No template file found for '{templateName}'. Attempted paths: {string.Join(", ", possibleFileNames.Select(f => Path.Combine(_templateBasePath, f)))}");
-                return string.Empty;
+                _logService?.LogWarning(
+                    $"No template file found for '{templateName}'. Attempted path: {filePath}"
+                );
             }
+            return string.Empty;
         }
 
+        _logService?.LogInfo($"Found template at: {filePath}");
         return filePath;
     }
 

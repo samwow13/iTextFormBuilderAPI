@@ -33,7 +33,7 @@ public class RazorService : IRazorService
     /// Initializes the Razor engine.
     /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         try
         {
@@ -41,8 +41,8 @@ public class RazorService : IRazorService
 
             // Create the engine
             _engine = CreateRazorLightEngine();
-
             _logService.LogInfo("RazorLight engine initialized successfully.");
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
