@@ -1,4 +1,14 @@
 @model iTextFormBuilderAPI.Models.Hotline.HotlineTestingInstance
+@using Newtonsoft.Json
+
+<pre>
+@{
+    // Display the model values for testing
+    var modelJson = JsonConvert.SerializeObject(Model, Formatting.Indented);
+}
+Model Values:
+@modelJson
+</pre>
 
 <!DOCTYPE html>
 <html lang="en">

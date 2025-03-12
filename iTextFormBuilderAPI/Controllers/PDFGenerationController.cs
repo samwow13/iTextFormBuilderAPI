@@ -147,32 +147,51 @@ public class PDFGenerationController : ControllerBase
                 _logService.LogInfo(
                     $"No specific model type found for template {request.TemplateName}, using default approach"
                 );
-            }
 
-            // For templates without a specific model type, or if model conversion failed, use the default approach
-            var defaultResult = _pdfGenerationService.GeneratePdf(
-                request.TemplateName,
-                request.Data
-            );
-
-            if (!defaultResult.Success)
-            {
-                return BadRequest(new ErrorResponse { Message = defaultResult.Message });
-            }
-
-            if (defaultResult.PdfBytes != null && defaultResult.PdfBytes.Length > 0)
-            {
-                return File(
-                    defaultResult.PdfBytes,
-                    "application/pdf",
-                    $"{request.TemplateName}.pdf",
-                    true
+                // Notify the user that we're proceeding without a specific model type
+                // This could affect data binding and template rendering
+                _logService.LogWarning(
+                    $"Model injection will not be completed for template '{request.TemplateName}' as the expected model type was not found"
                 );
+                
+                // Continue with default approach but provide warning in result message
+                var defaultResult = _pdfGenerationService.GeneratePdf(
+                    request.TemplateName,
+                    request.Data
+                );
+
+                if (!defaultResult.Success)
+                {
+                    return BadRequest(new ErrorResponse { Message = defaultResult.Message });
+                }
+
+                if (defaultResult.PdfBytes != null && defaultResult.PdfBytes.Length > 0)
+                {
+                    // Add a warning header to inform the client about the model mismatch
+                    Response.Headers.Append(
+                        "X-Model-Warning",
+                        "Model type not found for template. Data may not be properly bound."
+                    );
+                    return File(
+                        defaultResult.PdfBytes,
+                        "application/pdf",
+                        $"{request.TemplateName}.pdf",
+                        true
+                    );
+                }
+                else
+                {
+                    return BadRequest(
+                        new ErrorResponse
+                        {
+                            Message =
+                                "Generated PDF has no content. This may be due to the model type not being found for the template.",
+                        }
+                    );
+                }
             }
-            else
-            {
-                return BadRequest(new ErrorResponse { Message = "Generated PDF has no content" });
-            }
+
+            // This code is now handled in the else block above and will not be executed
         }
         catch (Exception ex)
         {

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO;
 using System.Text.Json;
 using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
@@ -7,8 +6,6 @@ using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using RazorLight;
-using RazorLight.Razor;
 
 namespace iTextFormBuilderAPI.Services
 {
@@ -251,7 +248,7 @@ namespace iTextFormBuilderAPI.Services
                         }
 
                         // If that fails, try with System.Text.Json
-                        var options = new System.Text.Json.JsonSerializerOptions
+                        var options = new JsonSerializerOptions
                         {
                             PropertyNameCaseInsensitive = true,
                         };
@@ -417,16 +414,5 @@ namespace iTextFormBuilderAPI.Services
             }
         }
 
-        /// <summary>
-        /// Generates a dummy PDF for testing purposes.
-        /// </summary>
-        /// <returns>A byte array representing a dummy PDF.</returns>
-        private byte[] GenerateDummyPdf()
-        {
-            _logService.LogInfo("Generating dummy PDF for testing");
-            // In a real implementation, this would generate an actual PDF
-            // For now, we return a dummy byte array
-            return new byte[1] { 0x01 };
-        }
     }
 }

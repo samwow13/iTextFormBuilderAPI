@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json;
 
 namespace iTextFormBuilderAPI.Models.Hotline
@@ -15,16 +16,17 @@ namespace iTextFormBuilderAPI.Models.Hotline
     {
         [JsonProperty("id")]
         public int Id { get; set; }
-        
+
         [JsonProperty("name")]
         public string Name { get; set; }
-        
+
+        [Required]
         [JsonProperty("description")]
         public string Description { get; set; }
-        
+
         [JsonProperty("created_at")]
         public string CreatedAt { get; set; }
-        
+
         [JsonProperty("is_active")]
         public bool IsActive { get; set; }
     }
@@ -39,7 +41,7 @@ namespace iTextFormBuilderAPI.Models.Hotline
     {
         [JsonProperty("title")]
         public string Title { get; set; }
-        
+
         [JsonProperty("fields")]
         public List<Field> Fields { get; set; }
     }
@@ -48,10 +50,10 @@ namespace iTextFormBuilderAPI.Models.Hotline
     {
         [JsonProperty("name")]
         public string Name { get; set; }
-        
+
         [JsonProperty("type")]
         public string Type { get; set; }
-        
+
         [JsonProperty("value")]
         public object Value { get; set; }
     }
