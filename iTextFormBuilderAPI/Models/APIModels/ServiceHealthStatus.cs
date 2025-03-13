@@ -14,7 +14,7 @@ public class ServiceHealthStatus
 
     // System Metrics
     public TimeSpan SystemUptime { get; set; }
-    public long MemoryUsage { get; set; }
+    public double MemoryUsageInMB { get; set; }  // Renamed from MemoryUsage and changed to double for MB representation
     public int ErrorsLogged { get; set; }
     public double CpuUsage { get; set; }                          // Added for CPU monitoring
     public double AverageResponseTime { get; set; }               // Added for performance tracking

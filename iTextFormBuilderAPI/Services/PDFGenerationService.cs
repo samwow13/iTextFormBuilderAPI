@@ -102,7 +102,7 @@ namespace iTextFormBuilderAPI.Services
 
                 // System Metrics
                 SystemUptime = _metricsService.SystemUptime,
-                MemoryUsage = _metricsService.MemoryUsage,
+                MemoryUsageInMB = _metricsService.MemoryUsageInMB,
                 ErrorsLogged = _errorsLogged,
                 CpuUsage = _metricsService.CpuUsage,
                 AverageResponseTime = _metricsService.AverageResponseTime,

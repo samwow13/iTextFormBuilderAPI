@@ -14,9 +14,9 @@ namespace iTextFormBuilderAPI.Interfaces
         double CpuUsage { get; }
 
         /// <summary>
-        /// Gets the current memory usage in bytes.
+        /// Gets the current memory usage in megabytes.
         /// </summary>
-        long MemoryUsage { get; }
+        double MemoryUsageInMB { get; }
 
         /// <summary>
         /// Gets the system uptime.

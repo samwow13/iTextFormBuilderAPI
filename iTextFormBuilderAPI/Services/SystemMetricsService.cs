@@ -70,9 +70,9 @@ namespace iTextFormBuilderAPI.Services
         public double CpuUsage => _cpuUsage;
 
         /// <summary>
-        /// Gets the current memory usage in bytes.
+        /// Gets the current memory usage in megabytes.
         /// </summary>
-        public long MemoryUsage => Process.GetCurrentProcess().WorkingSet64;
+        public double MemoryUsageInMB => Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0);
 
         /// <summary>
         /// Gets the system uptime.
