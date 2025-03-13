@@ -4,6 +4,7 @@ using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
+using System.IO;
 
 namespace iTextFormBuilderAPI.Services
 {
@@ -17,6 +18,7 @@ namespace iTextFormBuilderAPI.Services
         private static DateTime? _lastPDFGenerationTime = null;
         private static string _lastPDFGenerationStatus = "N/A";
         private static readonly Stopwatch _uptime = Stopwatch.StartNew();
+        private readonly string _globalStylesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "globalStyles.css");
 
         // Store the last 10 PDF generations
         private static readonly List<PdfGenerationLog> _recentPdfGenerations = [];
@@ -187,6 +189,10 @@ namespace iTextFormBuilderAPI.Services
                     $"Template '{templateName}' rendered successfully. HTML length: {htmlContent.Length} characters"
                 );
 
+                // Inject global styles into the HTML content
+                htmlContent = InjectGlobalStyles(htmlContent);
+                _logService.LogInfo("Global styles injected into HTML content");
+
                 // Convert HTML directly to PDF using memory streams
                 await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
                 await using var pdfStream = new MemoryStream();
@@ -204,6 +210,51 @@ namespace iTextFormBuilderAPI.Services
                     ex
                 );
                 throw; // Re-throw to be handled by the calling method
+            }
+        }
+
+        /// <summary>
+        /// Injects global CSS styles into the HTML content before PDF generation.
+        /// </summary>
+        /// <param name="htmlContent">The HTML content to inject styles into</param>
+        /// <returns>HTML content with injected global styles</returns>
+        /// <remarks>
+        /// Reads styles from globalStyles.css and injects them into the head section.
+        /// If the styles file is not found or head tag is missing, returns original content.
+        /// </remarks>
+        private string InjectGlobalStyles(string htmlContent)
+        {
+            try
+            {
+                if (!File.Exists(_globalStylesPath))
+                {
+                    _logService.LogWarning($"Global styles file not found: {_globalStylesPath}");
+                    return htmlContent;
+                }
+
+                var cssContent = File.ReadAllText(_globalStylesPath);
+
+                // Find the closing head tag
+                const string headEndTag = "</head>";
+                var headEndIndex = htmlContent.IndexOf(
+                    headEndTag,
+                    StringComparison.OrdinalIgnoreCase
+                );
+
+                if (headEndIndex == -1)
+                {
+                    _logService.LogWarning("No </head> tag found in HTML content");
+                    return htmlContent;
+                }
+
+                // Inject the CSS content within a style tag before the </head>
+                var styleTag = $"<style>{cssContent}</style>";
+                return htmlContent.Insert(headEndIndex, styleTag);
+            }
+            catch (Exception ex)
+            {
+                _logService.LogError($"Error injecting global styles: {ex.Message}", ex);
+                return htmlContent;
             }
         }
     }
