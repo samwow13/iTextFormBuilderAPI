@@ -153,7 +153,7 @@ public class PDFGenerationController : ControllerBase
                 _logService.LogWarning(
                     $"Model injection will not be completed for template '{request.TemplateName}' as the expected model type was not found"
                 );
-                
+
                 // Continue with default approach but provide warning in result message
                 var defaultResult = _pdfGenerationService.GeneratePdf(
                     request.TemplateName,

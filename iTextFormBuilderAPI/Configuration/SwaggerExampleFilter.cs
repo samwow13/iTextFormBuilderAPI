@@ -1,7 +1,7 @@
-using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
-using Swashbuckle.AspNetCore.SwaggerGen;
+using Microsoft.OpenApi.Models;
 using Newtonsoft.Json.Linq;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace iTextFormBuilderAPI.Configuration
 {
@@ -16,7 +16,8 @@ namespace iTextFormBuilderAPI.Configuration
             if (context.MethodInfo.Name == "GeneratePdf" && operation.RequestBody != null)
             {
                 // Sample JSON for the Hotline\HotlineTesting template
-                var testRazorJson = @"{
+                var testRazorJson =
+                    @"{
   ""templateName"": ""Hotline\\HotlineTesting"",
   ""data"": {
     ""model"": {
@@ -73,15 +74,19 @@ namespace iTextFormBuilderAPI.Configuration
                 {
                     Summary = "HotlineTesting Template Example",
                     Description = "Sample JSON for the Hotline\\HotlineTesting template",
-                    Value = OpenApiAnyFactory.CreateFromJson(testRazorJson)
+                    Value = OpenApiAnyFactory.CreateFromJson(testRazorJson),
                 };
 
                 // Add the example to all application/json media types in the request body
-                foreach (var mediaType in operation.RequestBody.Content.Where(x => x.Key == "application/json"))
+                foreach (
+                    var mediaType in operation.RequestBody.Content.Where(x =>
+                        x.Key == "application/json"
+                    )
+                )
                 {
                     mediaType.Value.Examples = new Dictionary<string, OpenApiExample>
                     {
-                        { "HotlineTestingExample", testRazorExample }
+                        { "HotlineTestingExample", testRazorExample },
                     };
                 }
             }

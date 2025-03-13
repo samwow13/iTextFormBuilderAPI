@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
@@ -22,6 +23,12 @@ namespace iTextFormBuilderAPI.Services
 
         // Store the last 10 PDF generations
         private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();
+
+        // Reusable JsonSerializerOptions instance for deserialization
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+        };
 
         // Reference to the template service
         private readonly IPdfTemplateService _templateService;
@@ -115,7 +122,9 @@ namespace iTextFormBuilderAPI.Services
                     object processedData = ProcessData(templateName, data);
                     _logService.LogInfo($"Data processed for template: {templateName}");
 
-                    pdfBytes = GeneratePdfFromTemplate(templateName, processedData);
+                    pdfBytes = GeneratePdfFromTemplate(templateName, processedData)
+                        .GetAwaiter()
+                        .GetResult();
                     _pdfsGenerated++;
                     _lastPDFGenerationTime = DateTime.UtcNow;
                     _lastPDFGenerationStatus = "Success";
@@ -248,15 +257,10 @@ namespace iTextFormBuilderAPI.Services
                         }
 
                         // If that fails, try with System.Text.Json
-                        var options = new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true,
-                        };
-
                         result = System.Text.Json.JsonSerializer.Deserialize(
                             jsonText,
                             modelType,
-                            options
+                            _jsonOptions
                         );
                         if (result != null)
                         {
@@ -309,7 +313,7 @@ namespace iTextFormBuilderAPI.Services
         /// <param name="templateName">The name of the template to use.</param>
         /// <param name="data">The data to populate the template with.</param>
         /// <returns>The generated PDF as a byte array.</returns>
-        private byte[] GeneratePdfFromTemplate(string templateName, object data)
+        private async Task<byte[]> GeneratePdfFromTemplate(string templateName, object data)
         {
             _logService.LogInfo($"Generating PDF from template: {templateName}");
 
@@ -328,91 +332,29 @@ namespace iTextFormBuilderAPI.Services
                 );
 
                 // Render the template using Razor
-                var htmlContent = _razorService
-                    .RenderTemplateAsync(templateName, data)
-                    .GetAwaiter()
-                    .GetResult();
+                var htmlContent = await _razorService.RenderTemplateAsync(templateName, data);
                 _logService.LogInfo(
                     $"Template '{templateName}' rendered successfully. HTML length: {htmlContent.Length} characters"
                 );
 
-                // Convert HTML string directly to PDF using a different approach
-                try
-                {
-                    // Save HTML to temp file to avoid any stream closing issues
-                    string tempHtmlPath = Path.Combine(
-                        Path.GetTempPath(),
-                        $"{Guid.NewGuid()}.html"
-                    );
-                    string tempPdfPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.pdf");
+                // Convert HTML directly to PDF using memory streams
+                await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
+                await using var pdfStream = new MemoryStream();
 
-                    try
-                    {
-                        // Write HTML to temp file
-                        File.WriteAllText(tempHtmlPath, htmlContent);
-                        _logService.LogInfo($"Wrote HTML to temp file: {tempHtmlPath}");
+                HtmlConverter.ConvertToPdf(htmlStream, pdfStream);
+                _logService.LogInfo($"HTML converted to PDF successfully");
 
-                        // Use iText's API to convert from HTML file to PDF file
-                        // Use a FileStream that's guaranteed to be properly disposed
-                        using (
-                            FileStream pdfFileStream = new FileStream(tempPdfPath, FileMode.Create)
-                        )
-                        {
-                            // Convert the HTML to PDF
-                            // The problem is that we're passing the file path directly, which
-                            // iText might be interpreting as HTML content rather than a path
-                            // Fix: Use explicit FileStream for input rather than just the path string
-                            using (
-                                FileStream htmlFileStream = new FileStream(
-                                    tempHtmlPath,
-                                    FileMode.Open
-                                )
-                            )
-                            {
-                                HtmlConverter.ConvertToPdf(htmlFileStream, pdfFileStream);
-                                _logService.LogInfo(
-                                    $"HTML converted to PDF successfully using file-based approach"
-                                );
-                            }
-                        }
-
-                        // Read resulting PDF file
-                        byte[] pdfBytes = File.ReadAllBytes(tempPdfPath);
-                        _logService.LogInfo(
-                            $"Read PDF from temp file: {tempPdfPath}, size: {pdfBytes.Length} bytes"
-                        );
-
-                        return pdfBytes;
-                    }
-                    finally
-                    {
-                        // Clean up temp files
-                        try
-                        {
-                            if (File.Exists(tempHtmlPath))
-                                File.Delete(tempHtmlPath);
-
-                            if (File.Exists(tempPdfPath))
-                                File.Delete(tempPdfPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logService.LogWarning($"Error deleting temp files: {ex.Message}");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logService.LogError($"Error during HTML to PDF conversion: {ex.Message}", ex);
-                    throw new Exception($"Error during HTML to PDF conversion: {ex.Message}", ex);
-                }
+                // Get the PDF bytes
+                return pdfStream.ToArray();
             }
             catch (Exception ex)
             {
-                _logService.LogError($"Error generating PDF from template '{templateName}'", ex);
+                _logService.LogError(
+                    $"Error generating PDF from template '{templateName}': {ex.Message}",
+                    ex
+                );
                 throw; // Re-throw to be handled by the calling method
             }
         }
-
     }
 }
