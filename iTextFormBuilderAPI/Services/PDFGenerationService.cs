@@ -1,24 +1,35 @@
 using System.Diagnostics;
+using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
-using System.IO;
+using Newtonsoft.Json;
 
 namespace iTextFormBuilderAPI.Services
 {
     /// <summary>
     /// Service responsible for generating PDF documents from templates.
     /// </summary>
-    public class PDFGenerationService(IPdfTemplateService templateService, IRazorService razorService, ILogService logService) : IPDFGenerationService
+    public class PDFGenerationService(
+        IPdfTemplateService templateService,
+        IRazorService razorService,
+        ILogService logService,
+        IDebugCshtmlInjectionService debugService
+    ) : IPDFGenerationService
     {
         private static int _pdfsGenerated = 0;
         private static int _errorsLogged = 0;
         private static DateTime? _lastPDFGenerationTime = null;
         private static string _lastPDFGenerationStatus = "N/A";
         private static readonly Stopwatch _uptime = Stopwatch.StartNew();
-        private readonly string _globalStylesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates", "globalStyles.css");
+        private readonly string _globalStylesPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "Templates",
+            "globalStyles.css"
+        );
 
         // Store the last 10 PDF generations
         private static readonly List<PdfGenerationLog> _recentPdfGenerations = [];
@@ -27,6 +38,17 @@ namespace iTextFormBuilderAPI.Services
         private readonly IPdfTemplateService _templateService = templateService;
         private readonly IRazorService _razorService = razorService;
         private readonly ILogService _logService = logService;
+        private readonly IDebugCshtmlInjectionService _debugService = debugService;
+
+        /// <summary>
+        /// Gets or sets whether model debugging is enabled.
+        /// When true, JSON representation of the model will be displayed at the top of generated PDFs.
+        /// </summary>
+        public bool ModelDebuggingEnabled
+        {
+            get => _debugService.ModelDebuggingEnabled;
+            set => _debugService.ModelDebuggingEnabled = value;
+        }
 
         /// <summary>
         /// Gets the health status of the PDF generation service.
@@ -184,17 +206,28 @@ namespace iTextFormBuilderAPI.Services
                 );
 
                 // Render the template using Razor
-                var htmlContent = await _razorService.RenderTemplateAsync(templateName, data);
+                var cshtmlContent = await _razorService.RenderTemplateAsync(templateName, data);
                 _logService.LogInfo(
-                    $"Template '{templateName}' rendered successfully. HTML length: {htmlContent.Length} characters"
+                    $"Template '{templateName}' rendered successfully. HTML length: {cshtmlContent.Length} characters"
                 );
 
+                // If debugging is enabled, inject model display code
+                cshtmlContent = _debugService.InjectModelDebugInfoIfEnabled(cshtmlContent, data);
+
                 // Inject global styles into the HTML content
-                htmlContent = InjectGlobalStyles(htmlContent);
+                cshtmlContent = InjectGlobalStyles(cshtmlContent);
                 _logService.LogInfo("Global styles injected into HTML content");
 
+                // Process image paths to embed images in the PDF
+                string templatesPath = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "Templates"
+                );
+                cshtmlContent = ProcessImagePaths(cshtmlContent, templatesPath);
+                _logService.LogInfo("Image paths processed and embedded into HTML content");
+
                 // Convert HTML directly to PDF using memory streams
-                await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(htmlContent));
+                await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(cshtmlContent));
                 await using var pdfStream = new MemoryStream();
 
                 HtmlConverter.ConvertToPdf(htmlStream, pdfStream);
@@ -214,29 +247,29 @@ namespace iTextFormBuilderAPI.Services
         }
 
         /// <summary>
-        /// Injects global CSS styles into the HTML content before PDF generation.
+        /// Injects global CSS styles into the CSHTML content before PDF generation.
         /// </summary>
-        /// <param name="htmlContent">The HTML content to inject styles into</param>
+        /// <param name="cshtmlContent">The CSHTML content to inject styles into</param>
         /// <returns>HTML content with injected global styles</returns>
         /// <remarks>
         /// Reads styles from globalStyles.css and injects them into the head section.
         /// If the styles file is not found or head tag is missing, returns original content.
         /// </remarks>
-        private string InjectGlobalStyles(string htmlContent)
+        private string InjectGlobalStyles(string cshtmlContent)
         {
             try
             {
                 if (!File.Exists(_globalStylesPath))
                 {
                     _logService.LogWarning($"Global styles file not found: {_globalStylesPath}");
-                    return htmlContent;
+                    return cshtmlContent;
                 }
 
                 var cssContent = File.ReadAllText(_globalStylesPath);
 
                 // Find the closing head tag
                 const string headEndTag = "</head>";
-                var headEndIndex = htmlContent.IndexOf(
+                var headEndIndex = cshtmlContent.IndexOf(
                     headEndTag,
                     StringComparison.OrdinalIgnoreCase
                 );
@@ -244,17 +277,82 @@ namespace iTextFormBuilderAPI.Services
                 if (headEndIndex == -1)
                 {
                     _logService.LogWarning("No </head> tag found in HTML content");
-                    return htmlContent;
+                    return cshtmlContent;
                 }
 
                 // Inject the CSS content within a style tag before the </head>
                 var styleTag = $"<style>{cssContent}</style>";
-                return htmlContent.Insert(headEndIndex, styleTag);
+                return cshtmlContent.Insert(headEndIndex, styleTag);
             }
             catch (Exception ex)
             {
                 _logService.LogError($"Error injecting global styles: {ex.Message}", ex);
-                return htmlContent;
+                return cshtmlContent;
+            }
+        }
+
+        /// <summary>
+        /// Processes image paths in HTML content to convert them to base64 data URIs.
+        /// </summary>
+        /// <param name="cshtmlContent">The HTML content containing image tags</param>
+        /// <param name="basePath">Base path for resolving relative image paths</param>
+        /// <returns>HTML content with image paths converted to base64 data URIs</returns>
+        /// <remarks>
+        /// This ensures images are embedded in the PDF rather than requiring external files.
+        /// If an image cannot be processed, the original img tag is preserved.
+        /// </remarks>
+        private string ProcessImagePaths(string cshtmlContent, string basePath)
+        {
+            try
+            {
+                // Find all img tags with src attributes
+                var imgPattern = @"<img[^>]*src\s*=\s*[""']([^""']*)[""'][^>]*>";
+                return Regex.Replace(
+                    cshtmlContent,
+                    imgPattern,
+                    match =>
+                    {
+                        var imgTag = match.Value;
+                        var srcPath = match.Groups[1].Value;
+
+                        // Remove leading '/' or './' if present
+                        srcPath = srcPath.TrimStart('/', '.');
+
+                        // Construct full path
+                        var fullPath = Path.Combine(basePath, srcPath);
+
+                        if (File.Exists(fullPath))
+                        {
+                            try
+                            {
+                                // Read image and convert to base64
+                                var imageBytes = File.ReadAllBytes(fullPath);
+                                var base64String = Convert.ToBase64String(imageBytes);
+                                var mimeType =
+                                    "image/" + Path.GetExtension(fullPath).TrimStart('.').ToLower();
+
+                                // Replace src with data URI
+                                return imgTag.Replace(
+                                    match.Groups[1].Value,
+                                    $"data:{mimeType};base64,{base64String}"
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                _logService.LogWarning($"Error processing image {fullPath}: {ex.Message}");
+                                return imgTag; // Keep original tag if processing fails
+                            }
+                        }
+
+                        _logService.LogWarning($"Image not found: {fullPath}");
+                        return imgTag; // Keep original tag if file not found
+                    }
+                );
+            }
+            catch (Exception ex)
+            {
+                _logService.LogError($"Error in ProcessImagePaths: {ex.Message}", ex);
+                return cshtmlContent; // Return original content if processing fails
             }
         }
     }

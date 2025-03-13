@@ -31,6 +31,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
 builder.Services.AddSingleton<IRazorService, RazorService>();
+builder.Services.AddSingleton<IDebugCshtmlInjectionService, DebugCshtmlInjectionService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
 
 
