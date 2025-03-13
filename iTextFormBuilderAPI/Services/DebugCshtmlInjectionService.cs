@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using iTextFormBuilderAPI.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 
 namespace iTextFormBuilderAPI.Services
@@ -10,21 +11,31 @@ namespace iTextFormBuilderAPI.Services
     public class DebugCshtmlInjectionService : IDebugCshtmlInjectionService
     {
         private readonly ILogService _logService;
+        private readonly IConfiguration _configuration;
+        private bool _modelDebuggingEnabled;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DebugCshtmlInjectionService"/> class.
         /// </summary>
         /// <param name="logService">The logging service</param>
-        public DebugCshtmlInjectionService(ILogService logService)
+        /// <param name="configuration">The application configuration</param>
+        public DebugCshtmlInjectionService(ILogService logService, IConfiguration configuration)
         {
             _logService = logService;
+            _configuration = configuration;
+            _modelDebuggingEnabled = _configuration.GetValue<bool>("Debug:ModelDebuggingEnabled");
         }
 
         /// <summary>
         /// Gets or sets whether model debugging is enabled.
         /// When true, JSON representation of the model will be displayed at the top of generated PDFs.
+        /// This value is read from application configuration.
         /// </summary>
-        public bool ModelDebuggingEnabled { get; set; } = true;
+        public bool ModelDebuggingEnabled
+        {
+            get => _modelDebuggingEnabled;
+            set => _modelDebuggingEnabled = value;
+        }
 
         /// <summary>
         /// Injects model debugging information at the top of the HTML content if debugging is enabled.

@@ -20,6 +20,9 @@ public class ServiceHealthStatus
     public double AverageResponseTime { get; set; }               // Added for performance tracking
     public int ConcurrentRequestsHandled { get; set; }            // Added for load monitoring
 
+    // Debug Information
+    public bool DebugModeActive { get; set; }                   // Added for tracking debug mode status
+
     // Dependency Status
     public Dictionary<string, string> DependencyStatuses { get; set; } = new();  // Added for tracking external services
     public string RazorServiceStatus { get; set; } = "Unknown";   // Added for template rendering health

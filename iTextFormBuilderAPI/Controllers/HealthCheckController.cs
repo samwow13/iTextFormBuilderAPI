@@ -13,6 +13,7 @@ public class HealthCheckController : ControllerBase
     private readonly IPDFGenerationService _pdfGenerationService;
     private readonly ISystemMetricsService _metricsService;
     private readonly IRazorService _razorService;
+    private readonly IDebugCshtmlInjectionService _debugService;
     private readonly Stopwatch _requestTimer = new();
 
     /// <summary>
@@ -21,14 +22,17 @@ public class HealthCheckController : ControllerBase
     /// <param name="pdfGenerationService">The PDF generation service.</param>
     /// <param name="metricsService">The system metrics service.</param>
     /// <param name="razorService">The Razor templating service.</param>
+    /// <param name="debugService">The debug CSHTML injection service.</param>
     public HealthCheckController(
         IPDFGenerationService pdfGenerationService, 
         ISystemMetricsService metricsService,
-        IRazorService razorService)
+        IRazorService razorService,
+        IDebugCshtmlInjectionService debugService)
     {
         _pdfGenerationService = pdfGenerationService;
         _metricsService = metricsService;
         _razorService = razorService;
+        _debugService = debugService;
     }
 
     /// <summary>
@@ -51,6 +55,9 @@ public class HealthCheckController : ControllerBase
         {
             // Get health status from the PDF generation service
             ServiceHealthStatus healthStatus = _pdfGenerationService.GetServiceHealth();
+
+            // Add debug mode status
+            healthStatus.DebugModeActive = _debugService.ModelDebuggingEnabled;
 
             // Record template performance for the health check itself (monitoring overhead)
             _requestTimer.Stop();
@@ -76,7 +83,8 @@ public class HealthCheckController : ControllerBase
             {
                 Status = "Error",
                 LastChecked = DateTime.UtcNow,
-                LastPDFGenerationStatus = $"Error during health check: {ex.Message}"
+                LastPDFGenerationStatus = $"Error during health check: {ex.Message}",
+                DebugModeActive = _debugService.ModelDebuggingEnabled
             };
             
             return StatusCode(500, errorStatus);
