@@ -177,132 +177,20 @@ namespace iTextFormBuilderAPI.Services
         {
             try
             {
-                // If data is already the correct type, return it as is
+                // Get the model type for the template
                 var modelType = _razorService.GetModelType(templateName);
                 if (modelType == null)
                 {
                     _logService.LogWarning(
-                        $"No model type found for template '{templateName}' (Models\\{(templateName.Contains("\\") ? templateName : templateName)}\\{Path.GetFileName(templateName)}Instance.cs. Using data as is."
+                        $"No model type found for template '{templateName}'. Using data as is."
                     );
                     return data;
                 }
-
-                // If data is already the correct type, return it as is
-                if (data.GetType() == modelType)
-                {
-                    _logService.LogInfo($"Data is already of the correct type: {modelType.Name}");
-                    return data;
-                }
-
-                // If data is a string, try to deserialize it
-                if (data is string stringData)
-                {
-                    if (string.IsNullOrEmpty(stringData))
-                    {
-                        _logService.LogWarning(
-                            $"Empty string data provided for template '{templateName}'"
-                        );
-                        return Activator.CreateInstance(modelType) ?? data;
-                    }
-
-                    _logService.LogInfo($"Converting string data to {modelType.Name}");
-                    var result = JsonConvert.DeserializeObject(stringData, modelType);
-                    return result ?? Activator.CreateInstance(modelType) ?? data;
-                }
-
-                // If data is a JObject or other JSON structure, convert it to the target type
-                if (data is JObject || data is JArray || data is JToken)
-                {
-                    _logService.LogInfo($"Converting JToken data to {modelType.Name}");
-                    var jsonString = data.ToString();
-                    if (string.IsNullOrEmpty(jsonString))
-                    {
-                        return Activator.CreateInstance(modelType) ?? data;
-                    }
-
-                    var result = JsonConvert.DeserializeObject(jsonString, modelType);
-                    return result ?? Activator.CreateInstance(modelType) ?? data;
-                }
-
-                // If data is a JsonElement, convert it to the target type
-                if (data is JsonElement jsonElement)
-                {
-                    _logService.LogInfo($"Converting JsonElement data to {modelType.Name}");
-                    var jsonText = jsonElement.GetRawText();
-                    if (string.IsNullOrEmpty(jsonText))
-                    {
-                        return Activator.CreateInstance(modelType) ?? data;
-                    }
-
-                    try
-                    {
-                        // First try with Newtonsoft.Json
-                        var settings = new JsonSerializerSettings
-                        {
-                            Error = (sender, args) =>
-                            {
-                                args.ErrorContext.Handled = true;
-                            },
-                            NullValueHandling = NullValueHandling.Ignore,
-                            MissingMemberHandling = MissingMemberHandling.Ignore,
-                        };
-
-                        var result = JsonConvert.DeserializeObject(jsonText, modelType, settings);
-                        if (result != null)
-                        {
-                            _logService.LogInfo(
-                                $"Successfully converted JsonElement to {modelType.Name} using Newtonsoft.Json"
-                            );
-                            return result;
-                        }
-
-                        // If that fails, try with System.Text.Json
-                        result = System.Text.Json.JsonSerializer.Deserialize(
-                            jsonText,
-                            modelType,
-                            _jsonOptions
-                        );
-                        if (result != null)
-                        {
-                            _logService.LogInfo(
-                                $"Successfully converted JsonElement to {modelType.Name} using System.Text.Json"
-                            );
-                            return result;
-                        }
-
-                        // If both fail, create a new instance and manually map properties
-                        _logService.LogWarning(
-                            $"Failed to deserialize JsonElement to {modelType.Name} using standard methods. Attempting manual mapping."
-                        );
-                        return Activator.CreateInstance(modelType) ?? data;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logService.LogError(
-                            $"Error converting JsonElement to {modelType.Name}: {ex.Message}",
-                            ex
-                        );
-                        return Activator.CreateInstance(modelType) ?? data;
-                    }
-                }
-
-                // Otherwise, serialize and deserialize to convert between types
-                _logService.LogInfo(
-                    $"Converting {data.GetType().Name} to {modelType.Name} via serialization"
-                );
-                var json = JsonConvert.SerializeObject(data);
-                if (string.IsNullOrEmpty(json))
-                {
-                    return Activator.CreateInstance(modelType) ?? data;
-                }
-
-                var deserializedResult = JsonConvert.DeserializeObject(json, modelType);
-                return deserializedResult ?? Activator.CreateInstance(modelType) ?? data;
+                return data;
             }
             catch (Exception ex)
             {
                 _logService.LogError($"Error processing data for template '{templateName}'", ex);
-                // Return the original data if processing fails
                 return data;
             }
         }
