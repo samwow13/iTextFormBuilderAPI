@@ -7,18 +7,14 @@ using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
 using Newtonsoft.Json;
+using System.Reflection;
 
 namespace iTextFormBuilderAPI.Services
 {
     /// <summary>
     /// Service responsible for generating PDF documents from templates.
     /// </summary>
-    public class PDFGenerationService(
-        IPdfTemplateService templateService,
-        IRazorService razorService,
-        ILogService logService,
-        IDebugCshtmlInjectionService debugService
-    ) : IPDFGenerationService
+    public class PDFGenerationService : IPDFGenerationService
     {
         private static int _pdfsGenerated = 0;
         private static int _errorsLogged = 0;
@@ -34,11 +30,35 @@ namespace iTextFormBuilderAPI.Services
         // Store the last 10 PDF generations
         private static readonly List<PdfGenerationLog> _recentPdfGenerations = [];
 
-        // Services injected through the primary constructor
-        private readonly IPdfTemplateService _templateService = templateService;
-        private readonly IRazorService _razorService = razorService;
-        private readonly ILogService _logService = logService;
-        private readonly IDebugCshtmlInjectionService _debugService = debugService;
+        // Services injected through the constructor
+        private readonly IPdfTemplateService _templateService;
+        private readonly IRazorService _razorService;
+        private readonly ILogService _logService;
+        private readonly IDebugCshtmlInjectionService _debugService;
+        private readonly ISystemMetricsService _metricsService;
+
+        /// <summary>
+        /// Initializes a new instance of the PDFGenerationService class.
+        /// </summary>
+        /// <param name="templateService">Service for managing PDF templates.</param>
+        /// <param name="razorService">Service for rendering Razor templates.</param>
+        /// <param name="logService">Service for logging messages.</param>
+        /// <param name="debugService">Service for injecting debug information into rendered templates.</param>
+        /// <param name="metricsService">Service for tracking system and performance metrics.</param>
+        public PDFGenerationService(
+            IPdfTemplateService templateService,
+            IRazorService razorService,
+            ILogService logService,
+            IDebugCshtmlInjectionService debugService,
+            ISystemMetricsService metricsService
+        )
+        {
+            _templateService = templateService;
+            _razorService = razorService;
+            _logService = logService;
+            _debugService = debugService;
+            _metricsService = metricsService;
+        }
 
         /// <summary>
         /// Gets or sets whether model debugging is enabled.
@@ -57,10 +77,20 @@ namespace iTextFormBuilderAPI.Services
         public ServiceHealthStatus GetServiceHealth()
         {
             var process = Process.GetCurrentProcess();
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            var versionString = version != null ? version.ToString() : "1.0.0";
+
+            // Check dependency statuses
+            var dependencyStatuses = new Dictionary<string, string>();
+            var razorServiceStatus = CheckRazorServiceStatus();
+            
+            // Add more dependency checks as needed
+            dependencyStatuses.Add("TemplateService", _templateService.GetTemplateCount() > 0 ? "Healthy" : "Unhealthy");
+            dependencyStatuses.Add("RazorService", razorServiceStatus);
 
             var status = new ServiceHealthStatus
             {
-                Status = _templateService.GetTemplateCount() > 0 ? "Healthy" : "Unhealthy",
+                Status = _templateService.GetTemplateCount() > 0 && razorServiceStatus == "Healthy" ? "Healthy" : "Unhealthy",
                 TemplateCount = _templateService.GetTemplateCount(),
                 AvailableTemplates = _templateService.GetAllTemplateNames().ToList(),
                 LastChecked = DateTime.UtcNow,
@@ -71,12 +101,52 @@ namespace iTextFormBuilderAPI.Services
                 LastPDFGenerationStatus = _lastPDFGenerationStatus,
 
                 // System Metrics
-                SystemUptime = _uptime.Elapsed,
-                MemoryUsage = process.WorkingSet64, // Memory usage in bytes
+                SystemUptime = _metricsService.SystemUptime,
+                MemoryUsage = _metricsService.MemoryUsage,
                 ErrorsLogged = _errorsLogged,
+                CpuUsage = _metricsService.CpuUsage,
+                AverageResponseTime = _metricsService.AverageResponseTime,
+                ConcurrentRequestsHandled = _metricsService.ConcurrentRequestsHandled,
+
+                // Dependency Status
+                DependencyStatuses = dependencyStatuses,
+                RazorServiceStatus = razorServiceStatus,
+
+                // Template Insights
+                TemplatePerformance = _metricsService.TemplatePerformance.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                TemplateUsageStatistics = _metricsService.TemplateUsageStatistics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+
+                // Operational Status
+                ServiceVersion = versionString,
+                
+                // Recent logs
+                RecentPdfGenerations = _recentPdfGenerations
             };
 
             return status;
+        }
+
+        /// <summary>
+        /// Checks the status of the Razor service.
+        /// </summary>
+        /// <returns>The status of the Razor service.</returns>
+        private string CheckRazorServiceStatus()
+        {
+            try
+            {
+                // Simple test to see if the Razor service can be initialized
+                var canInit = _razorService.IsInitialized();
+                if (!canInit)
+                {
+                    _razorService.InitializeAsync().GetAwaiter().GetResult();
+                }
+                return "Healthy";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogError("Error checking Razor service status", ex);
+                return "Unhealthy";
+            }
         }
 
         /// <summary>
@@ -91,7 +161,10 @@ namespace iTextFormBuilderAPI.Services
             bool success;
             string message;
             byte[] pdfBytes = [];
-
+            
+            var stopwatch = Stopwatch.StartNew();
+            _metricsService.StartRequest();
+            
             try
             {
                 if (!_templateService.TemplateExists(templateName))
@@ -126,6 +199,11 @@ namespace iTextFormBuilderAPI.Services
                 success = false;
                 message = $"Error generating PDF: {ex.Message}";
                 _logService.LogError(message, ex);
+            }
+            finally
+            {
+                stopwatch.Stop();
+                _metricsService.EndRequest(stopwatch.ElapsedMilliseconds);
             }
 
             // Store the last 10 PDF generations
@@ -205,10 +283,19 @@ namespace iTextFormBuilderAPI.Services
                     $"Model type for template '{templateName}': {(modelType != null ? modelType.Name : "Unknown")}"
                 );
 
+                // Track template rendering time
+                Stopwatch templateRenderTimer = new Stopwatch();
+                templateRenderTimer.Start();
+                
                 // Render the template using Razor
                 var cshtmlContent = await _razorService.RenderTemplateAsync(templateName, data);
+                
+                // Stop timer and record performance
+                templateRenderTimer.Stop();
+                _metricsService.RecordTemplatePerformance(templateName, templateRenderTimer.ElapsedMilliseconds);
+                
                 _logService.LogInfo(
-                    $"Template '{templateName}' rendered successfully. HTML length: {cshtmlContent.Length} characters"
+                    $"Template '{templateName}' rendered successfully. HTML length: {cshtmlContent.Length} characters, Render time: {templateRenderTimer.ElapsedMilliseconds}ms"
                 );
 
                 // If debugging is enabled, inject model display code
@@ -226,12 +313,19 @@ namespace iTextFormBuilderAPI.Services
                 cshtmlContent = ProcessImagePaths(cshtmlContent, templatesPath);
                 _logService.LogInfo("Image paths processed and embedded into HTML content");
 
+                // Track PDF conversion time
+                Stopwatch pdfConversionTimer = new Stopwatch();
+                pdfConversionTimer.Start();
+                
                 // Convert HTML directly to PDF using memory streams
                 await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(cshtmlContent));
                 await using var pdfStream = new MemoryStream();
 
                 HtmlConverter.ConvertToPdf(htmlStream, pdfStream);
-                _logService.LogInfo($"HTML converted to PDF successfully");
+                
+                // Stop timer and log performance
+                pdfConversionTimer.Stop();
+                _logService.LogInfo($"HTML converted to PDF successfully. Conversion time: {pdfConversionTimer.ElapsedMilliseconds}ms");
 
                 // Get the PDF bytes
                 return pdfStream.ToArray();

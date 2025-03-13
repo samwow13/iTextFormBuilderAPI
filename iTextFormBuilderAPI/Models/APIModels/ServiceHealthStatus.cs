@@ -16,6 +16,20 @@ public class ServiceHealthStatus
     public TimeSpan SystemUptime { get; set; }
     public long MemoryUsage { get; set; }
     public int ErrorsLogged { get; set; }
+    public double CpuUsage { get; set; }                          // Added for CPU monitoring
+    public double AverageResponseTime { get; set; }               // Added for performance tracking
+    public int ConcurrentRequestsHandled { get; set; }            // Added for load monitoring
+
+    // Dependency Status
+    public Dictionary<string, string> DependencyStatuses { get; set; } = new();  // Added for tracking external services
+    public string RazorServiceStatus { get; set; } = "Unknown";   // Added for template rendering health
+
+    // Template Insights
+    public Dictionary<string, double> TemplatePerformance { get; set; } = new();  // Added for template rendering times
+    public Dictionary<string, int> TemplateUsageStatistics { get; set; } = new(); // Added for usage patterns
+
+    // Operational Status
+    public string ServiceVersion { get; set; } = "1.0.0";         // Added for version tracking
 
     // Track last 10 PDF generations
     public List<PdfGenerationLog> RecentPdfGenerations { get; set; } = new();

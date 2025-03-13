@@ -25,4 +25,10 @@ public interface IRazorService
     /// <param name="templateName">The name of the template.</param>
     /// <returns>The type of the model, or null if the type cannot be determined.</returns>
     Type? GetModelType(string templateName);
+    
+    /// <summary>
+    /// Checks if the Razor engine is initialized.
+    /// </summary>
+    /// <returns>True if the Razor engine is initialized, false otherwise.</returns>
+    bool IsInitialized();
 }

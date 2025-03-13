@@ -32,6 +32,7 @@ builder.Services.AddSingleton<ILogService, LogService>();
 builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
 builder.Services.AddSingleton<IRazorService, RazorService>();
 builder.Services.AddSingleton<IDebugCshtmlInjectionService, DebugCshtmlInjectionService>();
+builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
 builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
 
 

@@ -52,6 +52,15 @@ public class RazorService : IRazorService
     }
 
     /// <summary>
+    /// Checks if the Razor engine is initialized.
+    /// </summary>
+    /// <returns>True if the Razor engine is initialized, false otherwise.</returns>
+    public bool IsInitialized()
+    {
+        return _engine != null;
+    }
+
+    /// <summary>
     /// Creates and configures the RazorLight engine.
     /// </summary>
     /// <returns>A configured RazorLightEngine instance.</returns>
