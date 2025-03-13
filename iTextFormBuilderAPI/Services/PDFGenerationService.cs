@@ -1,19 +1,16 @@
 using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using iText.Html2pdf;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace iTextFormBuilderAPI.Services
 {
     /// <summary>
     /// Service responsible for generating PDF documents from templates.
     /// </summary>
-    public class PDFGenerationService : IPDFGenerationService
+    public class PDFGenerationService(IPdfTemplateService templateService, IRazorService razorService, ILogService logService) : IPDFGenerationService
     {
         private static int _pdfsGenerated = 0;
         private static int _errorsLogged = 0;
@@ -22,35 +19,12 @@ namespace iTextFormBuilderAPI.Services
         private static readonly Stopwatch _uptime = Stopwatch.StartNew();
 
         // Store the last 10 PDF generations
-        private static readonly List<PdfGenerationLog> _recentPdfGenerations = new();
+        private static readonly List<PdfGenerationLog> _recentPdfGenerations = [];
 
-        // Reusable JsonSerializerOptions instance for deserialization
-        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-        };
-
-        // Reference to the template service
-        private readonly IPdfTemplateService _templateService;
-        private readonly IRazorService _razorService;
-        private readonly ILogService _logService;
-
-        /// <summary>
-        /// Initializes a new instance of the PDFGenerationService class.
-        /// </summary>
-        /// <param name="templateService">The template service for managing PDF templates.</param>
-        /// <param name="razorService">The Razor service for rendering templates.</param>
-        /// <param name="logService">The log service for logging messages.</param>
-        public PDFGenerationService(
-            IPdfTemplateService templateService,
-            IRazorService razorService,
-            ILogService logService
-        )
-        {
-            _templateService = templateService;
-            _razorService = razorService;
-            _logService = logService;
-        }
+        // Services injected through the primary constructor
+        private readonly IPdfTemplateService _templateService = templateService;
+        private readonly IRazorService _razorService = razorService;
+        private readonly ILogService _logService = logService;
 
         /// <summary>
         /// Gets the health status of the PDF generation service.
@@ -76,18 +50,6 @@ namespace iTextFormBuilderAPI.Services
                 SystemUptime = _uptime.Elapsed,
                 MemoryUsage = process.WorkingSet64, // Memory usage in bytes
                 ErrorsLogged = _errorsLogged,
-
-                // Return recent PDF generations, or an empty list with a placeholder message
-                RecentPdfGenerations =
-                    _recentPdfGenerations.Count <= 1
-                        ? new List<PdfGenerationLog>
-                        {
-                            new PdfGenerationLog
-                            {
-                                Message = "Waiting for more PDF generations to be available.",
-                            },
-                        }
-                        : _recentPdfGenerations.ToList(),
             };
 
             return status;
@@ -104,7 +66,7 @@ namespace iTextFormBuilderAPI.Services
             _logService.LogInfo($"Starting PDF generation for template: {templateName}");
             bool success;
             string message;
-            byte[] pdfBytes = Array.Empty<byte>();
+            byte[] pdfBytes = [];
 
             try
             {
@@ -162,7 +124,7 @@ namespace iTextFormBuilderAPI.Services
             return new PdfResult
             {
                 Success = success,
-                PdfBytes = success ? pdfBytes : Array.Empty<byte>(),
+                PdfBytes = success ? pdfBytes : [],
                 Message = message,
             };
         }
@@ -208,7 +170,7 @@ namespace iTextFormBuilderAPI.Services
             if (!_templateService.TemplateExists(templateName))
             {
                 _logService.LogError($"Template '{templateName}' does not exist.");
-                return Array.Empty<byte>();
+                return [];
             }
 
             try
