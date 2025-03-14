@@ -14,6 +14,8 @@
     <PackageReference Include="itext.bouncy-castle-adapter" Version="9.1.0" />
     <PackageReference Include="itext7" Version="9.1.0" />
     <PackageReference Include="itext7.pdfhtml" Version="6.1.0" />
+    <PackageReference Include="NLog" Version="5.4.0" />
+    <PackageReference Include="NLog.Web.AspNetCore" Version="5.4.0" />
     <PackageReference Include="RazorLight" Version="2.3.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="7.3.1" />

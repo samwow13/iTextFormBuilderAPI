@@ -17,7 +17,7 @@ namespace iTextFormBuilderAPI.Services
         private readonly ConcurrentDictionary<string, double> _responseTimesMs = new();
         private readonly ConcurrentDictionary<string, int> _templateUsageCounts = new();
         private readonly Timer _aggregationTimer;
-        
+
         private double _cpuUsage = 0;
         private int _currentConcurrentRequests = 0;
         private double _cumulativeResponseTimeMs = 0;
@@ -37,11 +37,18 @@ namespace iTextFormBuilderAPI.Services
             try
             {
                 // Try to use CPU counter through reflection to avoid direct dependency on PerformanceCounter
-                var counterType = Type.GetType("System.Diagnostics.PerformanceCounter, System.Diagnostics.PerformanceCounter");
+                var counterType = Type.GetType(
+                    "System.Diagnostics.PerformanceCounter, System.Diagnostics.PerformanceCounter"
+                );
                 if (counterType != null)
                 {
-                    _cpuCounter = Activator.CreateInstance(counterType, "Processor", "% Processor Time", "_Total");
-                    
+                    _cpuCounter = Activator.CreateInstance(
+                        counterType,
+                        "Processor",
+                        "% Processor Time",
+                        "_Total"
+                    );
+
                     // Call NextValue method using reflection
                     var nextValueMethod = counterType.GetMethod("NextValue");
                     if (nextValueMethod != null && _cpuCounter != null)
@@ -52,7 +59,9 @@ namespace iTextFormBuilderAPI.Services
                 }
                 else
                 {
-                    _logService.LogWarning("PerformanceCounter type not found. CPU usage monitoring will be disabled.");
+                    _logService.LogWarning(
+                        "PerformanceCounter type not found. CPU usage monitoring will be disabled."
+                    );
                 }
             }
             catch (Exception ex)
@@ -61,7 +70,12 @@ namespace iTextFormBuilderAPI.Services
             }
 
             // Timer to periodically sample CPU usage every 5 seconds
-            _aggregationTimer = new Timer(UpdateMetrics, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            _aggregationTimer = new Timer(
+                UpdateMetrics,
+                null,
+                TimeSpan.Zero,
+                TimeSpan.FromSeconds(5)
+            );
         }
 
         /// <summary>
@@ -72,7 +86,8 @@ namespace iTextFormBuilderAPI.Services
         /// <summary>
         /// Gets the current memory usage in megabytes.
         /// </summary>
-        public double MemoryUsageInMB => Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0);
+        public double MemoryUsageInMB =>
+            Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0);
 
         /// <summary>
         /// Gets the system uptime.
@@ -87,9 +102,8 @@ namespace iTextFormBuilderAPI.Services
         /// <summary>
         /// Gets the average response time for all requests in milliseconds.
         /// </summary>
-        public double AverageResponseTime => _totalResponseCount > 0 
-            ? _cumulativeResponseTimeMs / _totalResponseCount 
-            : 0;
+        public double AverageResponseTime =>
+            _totalResponseCount > 0 ? _cumulativeResponseTimeMs / _totalResponseCount : 0;
 
         /// <summary>
         /// Gets the template performance metrics (average render time in milliseconds per template).
@@ -117,7 +131,10 @@ namespace iTextFormBuilderAPI.Services
         {
             Interlocked.Decrement(ref _currentConcurrentRequests);
             Interlocked.Increment(ref _totalResponseCount);
-            Interlocked.Exchange(ref _cumulativeResponseTimeMs, _cumulativeResponseTimeMs + elapsedMs);
+            Interlocked.Exchange(
+                ref _cumulativeResponseTimeMs,
+                _cumulativeResponseTimeMs + elapsedMs
+            );
         }
 
         /// <summary>
@@ -179,11 +196,11 @@ namespace iTextFormBuilderAPI.Services
                 if (disposing)
                 {
                     _aggregationTimer?.Dispose();
-                    
+
                     if (_canUseCpuCounter && _cpuCounter != null)
                     {
                         // Try to dispose the counter using reflection
-                        try 
+                        try
                         {
                             var type = _cpuCounter.GetType();
                             var disposeMethod = type.GetMethod("Dispose", Type.EmptyTypes);

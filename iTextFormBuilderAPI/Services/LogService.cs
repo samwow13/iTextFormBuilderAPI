@@ -1,40 +1,26 @@
 using System.Text;
 using iTextFormBuilderAPI.Interfaces;
+using NLog;
 
 namespace iTextFormBuilderAPI.Services;
 
 /// <summary>
-/// Service for logging messages to a file in the application's root directory.
+/// Service for logging messages using NLog while maintaining the original LogService interface.
 /// </summary>
 public class LogService : ILogService
 {
-    private readonly string _logFilePath;
-    private readonly object _lockObject = new object();
-
-    // Static flag to track if the log has been cleared in the current session
-    private static bool _logClearedThisSession = false;
+    private readonly NLog.ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the LogService class.
     /// </summary>
     public LogService()
     {
-        // Determine the project root directory
-        var projectRoot = Directory
-            .GetParent(AppContext.BaseDirectory)
-            ?.Parent?.Parent?.Parent?.FullName;
-
-        if (projectRoot == null)
-        {
-            // If we can't determine the project root, use the current directory
-            projectRoot = Directory.GetCurrentDirectory();
-        }
-
-        // Set the log file path directly in the root directory
-        _logFilePath = Path.Combine(projectRoot, $"app_log_{DateTime.Now:yyyy-MM-dd}.log");
-
-        // Log the location of the log file
-        Console.WriteLine($"Log file will be written to: {_logFilePath}");
+        // Get a logger with the name of the current class
+        _logger = LogManager.GetLogger(typeof(LogService).FullName);
+        
+        // Log the initialization of the service
+        _logger.Info("LogService initialized. Using NLog for logging.");
     }
 
     /// <summary>
@@ -43,7 +29,7 @@ public class LogService : ILogService
     /// <param name="message">The message to log.</param>
     public void LogInfo(string message)
     {
-        WriteToLog("INFO", message);
+        _logger.Info(message);
     }
 
     /// <summary>
@@ -52,7 +38,7 @@ public class LogService : ILogService
     /// <param name="message">The message to log.</param>
     public void LogWarning(string message)
     {
-        WriteToLog("WARNING", message);
+        _logger.Warn(message);
     }
 
     /// <summary>
@@ -61,7 +47,7 @@ public class LogService : ILogService
     /// <param name="message">The message to log.</param>
     public void LogError(string message)
     {
-        WriteToLog("ERROR", message);
+        _logger.Error(message);
     }
 
     /// <summary>
@@ -71,8 +57,7 @@ public class LogService : ILogService
     /// <param name="ex">The exception to log.</param>
     public void LogError(string message, Exception ex)
     {
-        var fullMessage = $"{message} - Exception: {ex.Message}\nStackTrace: {ex.StackTrace}";
-        WriteToLog("ERROR", fullMessage);
+        _logger.Error(ex, message);
     }
 
     /// <summary>
@@ -81,53 +66,16 @@ public class LogService : ILogService
     /// <param name="message">The message to log.</param>
     public void LogDebug(string message)
     {
-        WriteToLog("DEBUG", message);
+        _logger.Debug(message);
     }
 
     /// <summary>
-    /// Writes a message to the log file.
-    /// </summary>
-    /// <param name="level">The log level.</param>
-    /// <param name="message">The message to log.</param>
-    private void WriteToLog(string level, string message)
-    {
-        try
-        {
-            // Format the log entry
-            var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}\r\n";
-
-            // Write to the log file with a lock to prevent concurrent access issues
-            lock (_lockObject)
-            {
-                // Clear the log file on first write of the session
-                if (!_logClearedThisSession)
-                {
-                    // Create or overwrite the file (clearing previous content)
-                    File.WriteAllText(
-                        _logFilePath,
-                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] Log file cleared for new session\r\n",
-                        Encoding.UTF8
-                    );
-                    _logClearedThisSession = true;
-                }
-
-                // Append the new log entry
-                File.AppendAllText(_logFilePath, logEntry, Encoding.UTF8);
-            }
-        }
-        catch (Exception ex)
-        {
-            // If we can't write to the log file, write to the console
-            Console.WriteLine($"Failed to write to log file: {ex.Message}");
-            Console.WriteLine($"Original log message: [{level}] {message}");
-        }
-    }
-
-    /// <summary>
-    /// Resets the log clearing flag. Can be called when you want to force the log to clear again.
+    /// Resets the log clearing flag. This method is kept for backwards compatibility but does nothing with NLog.
     /// </summary>
     public static void ResetLogClearingFlag()
     {
-        _logClearedThisSession = false;
+        // This method does nothing with NLog as it's not needed
+        // It's kept for backwards compatibility
+        LogManager.GetLogger(typeof(LogService).FullName).Info("ResetLogClearingFlag called, but this has no effect when using NLog.");
     }
 }

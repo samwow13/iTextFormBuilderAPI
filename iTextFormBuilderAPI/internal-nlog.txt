@@ -1,0 +1,5 @@
+2025-03-14 09:12:56.2956 Info Registered target NLog.Targets.ConsoleTarget(Name=logconsole)
+2025-03-14 09:12:56.3061 Info Registered target NLog.Targets.FileTarget(Name=logfile)
+2025-03-14 09:12:56.3061 Info NLog, Version=5.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c. File version: 5.4.0.3182. Product version: 5.4.0+4d45d445601312040107cbe2ac00e56c4bf4a60b. GlobalAssemblyCache: False
+2025-03-14 09:12:56.3061 Info Validating config: TargetNames=logconsole, logfile, ConfigItems=24 ConfigSection=NLog
+2025-03-14 09:12:56.3231 Info Configuration initialized.

@@ -2,51 +2,64 @@ using System.Reflection;
 using iTextFormBuilderAPI.Configuration;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Services;
+using NLog;
+using NLog.Web;
 
-var builder = WebApplication.CreateBuilder(args);
+// Setup NLog for dependency injection
+var logger = LogManager.Setup()
+                .LoadConfigurationFromAppSettings()
+                .GetCurrentClassLogger();
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+try
 {
-    c.EnableAnnotations();
+    // Starting application
+    logger.Info("Starting application");
+    
+    // Create builder with NLog integration
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseNLog();
 
-    // Register our custom operation filter to add examples
-    c.OperationFilter<SwaggerExampleFilter>();
+    // Add services to the container.
+    builder.Services.AddControllers();
 
-    // Add XML comments if they exist
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
+    // Swagger configuration
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
     {
-        c.IncludeXmlComments(xmlPath);
-    }
-});
+        c.EnableAnnotations();
 
-// Register services for dependency injection
-builder.Services.AddSingleton<ILogService, LogService>();
-builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
-builder.Services.AddSingleton<IRazorService, RazorService>();
-builder.Services.AddSingleton<IDebugCshtmlInjectionService, DebugCshtmlInjectionService>();
-builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
-builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
+        // Register custom operation filter for examples
+        c.OperationFilter<SwaggerExampleFilter>();
 
+        // Add XML comments if they exist
+        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
+    });
 
-var app = builder.Build();
+    // Register services for dependency injection
+    builder.Services.AddSingleton<ILogService, LogService>();
+    builder.Services.AddSingleton<IPdfTemplateService, PdfTemplateService>();
+    builder.Services.AddSingleton<IRazorService, RazorService>();
+    builder.Services.AddSingleton<IDebugCshtmlInjectionService, DebugCshtmlInjectionService>();
+    builder.Services.AddSingleton<ISystemMetricsService, SystemMetricsService>();
+    builder.Services.AddScoped<IPDFGenerationService, PDFGenerationService>();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
+    // Build the application
+    var app = builder.Build();
+
+    // Configure the HTTP request pipeline.
+    if (app.Environment.IsDevelopment())
     {
-        // Add custom JavaScript for clipboard functionality
-        c.HeadContent =
-            @"
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            // Add custom JavaScript for clipboard functionality
+            c.HeadContent =
+                @"
             <script>
             window.onload = function() {
                 setTimeout(function() {
@@ -112,14 +125,26 @@ if (app.Environment.IsDevelopment())
                 }, 500);
             };
             </script>";
-    });
+        });
+    }
+
+    // Commented out HTTPS redirection as per memory to avoid SSL certificate issues
+    // app.UseHttpsRedirection();
+
+    app.UseAuthorization();
+    app.MapControllers();
+
+    // Run the application
+    app.Run();
 }
-
-// Commented out HTTPS redirection as per memory to avoid SSL certificate issues
-// app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+catch (Exception ex)
+{
+    // Log any startup errors
+    logger.Error(ex, "Application stopped due to an exception");
+    throw;
+}
+finally
+{
+    // Ensure to flush and stop internal timers/threads before application exit
+    LogManager.Shutdown();
+}
