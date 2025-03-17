@@ -46,7 +46,8 @@ public class PDFGenerationController : ControllerBase
     /// ```json
     /// {
     ///   "templateName": "Invoice",
-    ///   "data": { "customerName": "John Doe", "amount": 100 }
+    ///   "data": { "customerName": "John Doe", "amount": 100 },
+    ///   "returnAsBase64": false
     /// }
     /// ```
     ///
@@ -54,16 +55,17 @@ public class PDFGenerationController : ControllerBase
     /// - Hotline\\HotlineTesting
     /// </remarks>
     /// <param name="request">The request containing the template name and data.</param>
-    /// <returns>A PDF file if successful, or an error message if the template is not found.</returns>
-    /// <response code="200">Returns the generated PDF file.</response>
+    /// <returns>A PDF file if ReturnAsBase64 is false, or a JSON response with base64 string if ReturnAsBase64 is true.</returns>
+    /// <response code="200">Returns the generated PDF file or base64 string.</response>
     /// <response code="400">Invalid request or template not found.</response>
     [HttpPost("generate")]
     [Produces("application/json", "application/pdf")]
     [ProducesResponseType(typeof(FileResult), 200)]
+    [ProducesResponseType(typeof(Base64PdfResponse), 200)]
     [ProducesResponseType(typeof(ErrorResponse), 400)]
     [SwaggerOperation(
         Summary = "Generate a PDF from a template",
-        Description = "Use this endpoint to generate a PDF file using a predefined template and structured data."
+        Description = "Use this endpoint to generate a PDF file using a predefined template and structured data. Optionally returns as base64 string."
     )]
     public IActionResult GeneratePdf([FromBody] PdfRequest request)
     {
@@ -73,6 +75,7 @@ public class PDFGenerationController : ControllerBase
                 $"Processing PDF generation request for template: {request.TemplateName}"
             );
             _logService.LogInfo($"Incoming data type: {request.Data.GetType().FullName}");
+            _logService.LogInfo($"Return as base64: {request.ReturnAsBase64}");
 
             // Try to obtain the model type for this template
             var modelType = _razorService.GetModelType(request.TemplateName);
@@ -107,12 +110,26 @@ public class PDFGenerationController : ControllerBase
 
                         if (result.PdfBytes != null && result.PdfBytes.Length > 0)
                         {
-                            return File(
-                                result.PdfBytes,
-                                "application/pdf",
-                                $"{request.TemplateName}.pdf",
-                                true
-                            );
+                            if (request.ReturnAsBase64)
+                            {
+                                // Return the PDF as a base64 string
+                                string base64String = Convert.ToBase64String(result.PdfBytes);
+                                return Ok(new Base64PdfResponse
+                                {
+                                    Base64Data = base64String,
+                                    FileName = $"{request.TemplateName}.pdf"
+                                });
+                            }
+                            else
+                            {
+                                // Return as file download
+                                return File(
+                                    result.PdfBytes,
+                                    "application/pdf",
+                                    $"{request.TemplateName}.pdf",
+                                    true
+                                );
+                            }
                         }
                         else
                         {
@@ -172,12 +189,27 @@ public class PDFGenerationController : ControllerBase
                         "X-Model-Warning",
                         "Model type not found for template. Data may not be properly bound."
                     );
-                    return File(
-                        defaultResult.PdfBytes,
-                        "application/pdf",
-                        $"{request.TemplateName}.pdf",
-                        true
-                    );
+
+                    if (request.ReturnAsBase64)
+                    {
+                        // Return the PDF as a base64 string
+                        string base64String = Convert.ToBase64String(defaultResult.PdfBytes);
+                        return Ok(new Base64PdfResponse
+                        {
+                            Base64Data = base64String,
+                            FileName = $"{request.TemplateName}.pdf"
+                        });
+                    }
+                    else
+                    {
+                        // Return as file download
+                        return File(
+                            defaultResult.PdfBytes,
+                            "application/pdf",
+                            $"{request.TemplateName}.pdf",
+                            true
+                        );
+                    }
                 }
                 else
                 {
@@ -209,4 +241,20 @@ public class PDFGenerationController : ControllerBase
 public class ErrorResponse
 {
     public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Represents a response containing a PDF as a base64 encoded string.
+/// </summary>
+public class Base64PdfResponse
+{
+    /// <summary>
+    /// The base64 encoded PDF data.
+    /// </summary>
+    public string Base64Data { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The suggested filename for the PDF.
+    /// </summary>
+    public string FileName { get; set; } = string.Empty;
 }

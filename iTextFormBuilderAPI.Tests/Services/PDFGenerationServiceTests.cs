@@ -1,10 +1,10 @@
+using System.Collections.Concurrent;
+using System.Text;
 using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
 using iTextFormBuilderAPI.Services;
 using Moq;
-using System.Collections.Concurrent;
-using System.Text;
 using Xunit;
 
 namespace iTextFormBuilderAPI.Tests.Services
@@ -34,39 +34,32 @@ namespace iTextFormBuilderAPI.Tests.Services
             _mockMetricsService = new Mock<ISystemMetricsService>();
 
             // Setup mock behavior
-            _mockTemplateService.Setup(ts => ts.TemplateExists(It.IsAny<string>()))
+            _mockTemplateService
+                .Setup(ts => ts.TemplateExists(It.IsAny<string>()))
                 .Returns<string>(templateName => templateName == "TestTemplate");
 
-            _mockTemplateService.Setup(ts => ts.GetTemplateCount())
-                .Returns(2);
+            _mockTemplateService.Setup(ts => ts.GetTemplateCount()).Returns(2);
 
-            _mockTemplateService.Setup(ts => ts.GetAllTemplateNames())
+            _mockTemplateService
+                .Setup(ts => ts.GetAllTemplateNames())
                 .Returns(new string[] { "TestTemplate", "AnotherTemplate" });
 
-            _mockRazorService.Setup(rs => rs.IsInitialized())
-                .Returns(true);
+            _mockRazorService.Setup(rs => rs.IsInitialized()).Returns(true);
 
             // Setup the metrics with proper ConcurrentDictionary objects
             var templatePerformance = new ConcurrentDictionary<string, double>();
             templatePerformance.TryAdd("TestTemplate", 100.0);
-            _mockMetricsService.Setup(ms => ms.TemplatePerformance)
-                .Returns(templatePerformance);
+            _mockMetricsService.Setup(ms => ms.TemplatePerformance).Returns(templatePerformance);
 
             var templateUsageStats = new ConcurrentDictionary<string, int>();
             templateUsageStats.TryAdd("TestTemplate", 5);
-            _mockMetricsService.Setup(ms => ms.TemplateUsageStatistics)
-                .Returns(templateUsageStats);
+            _mockMetricsService.Setup(ms => ms.TemplateUsageStatistics).Returns(templateUsageStats);
 
-            _mockMetricsService.Setup(ms => ms.SystemUptime)
-                .Returns(TimeSpan.FromMinutes(5));
-            _mockMetricsService.Setup(ms => ms.MemoryUsageInMB)
-                .Returns(100);
-            _mockMetricsService.Setup(ms => ms.CpuUsage)
-                .Returns(50);
-            _mockMetricsService.Setup(ms => ms.AverageResponseTime)
-                .Returns(200);
-            _mockMetricsService.Setup(ms => ms.ConcurrentRequestsHandled)
-                .Returns(10);
+            _mockMetricsService.Setup(ms => ms.SystemUptime).Returns(TimeSpan.FromMinutes(5));
+            _mockMetricsService.Setup(ms => ms.MemoryUsageInMB).Returns(100);
+            _mockMetricsService.Setup(ms => ms.CpuUsage).Returns(50);
+            _mockMetricsService.Setup(ms => ms.AverageResponseTime).Returns(200);
+            _mockMetricsService.Setup(ms => ms.ConcurrentRequestsHandled).Returns(10);
 
             // Create the service
             _service = new PDFGenerationService(
@@ -74,7 +67,8 @@ namespace iTextFormBuilderAPI.Tests.Services
                 _mockRazorService.Object,
                 _mockLogService.Object,
                 _mockDebugService.Object,
-                _mockMetricsService.Object);
+                _mockMetricsService.Object
+            );
         }
 
         /// <summary>
@@ -106,21 +100,23 @@ namespace iTextFormBuilderAPI.Tests.Services
             var testData = new { Name = "Test Data" };
 
             // Setup the necessary dependencies for a successful PDF generation
-            _mockRazorService.Setup(rs => rs.GetModelType(It.IsAny<string>()))
+            _mockRazorService
+                .Setup(rs => rs.GetModelType(It.IsAny<string>()))
                 .Returns(typeof(object));
-            
-            _mockRazorService.Setup(rs => rs.RenderTemplateAsync(It.IsAny<string>(), It.IsAny<object>()))
+
+            _mockRazorService
+                .Setup(rs => rs.RenderTemplateAsync(It.IsAny<string>(), It.IsAny<object>()))
                 .ReturnsAsync("<html><body>Test Rendered HTML</body></html>");
 
             // Create a mock PDF byte content
             var mockPdfBytes = Encoding.UTF8.GetBytes("Mock PDF Content");
-            
+
             // Set up a successful response
             var result = new PdfResult
             {
                 Success = true,
                 Message = "PDF generated successfully.",
-                PdfBytes = mockPdfBytes
+                PdfBytes = mockPdfBytes,
             };
 
             // Act

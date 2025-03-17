@@ -16,6 +16,7 @@ namespace iTextFormBuilderAPI.Configuration
             if (context.MethodInfo.Name == "GeneratePdf" && operation.RequestBody != null)
             {
                 // Sample JSON for the Hotline\HotlineTesting template
+                // Note: returnAsBase64 is a boolean that determines whether the PDF is returned as base64 or as a file download
                 var testRazorJson =
                     @"{
   ""templateName"": ""Hotline\\HotlineTesting"",
@@ -66,7 +67,8 @@ namespace iTextFormBuilderAPI.Configuration
         }
       ]
     }
-  }
+  },
+  ""returnAsBase64"": true
 }";
 
                 // Create example for Hotline\HotlineTesting template
