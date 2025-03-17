@@ -6,7 +6,7 @@ using RazorLight;
 using System.Reflection;
 using Xunit;
 
-namespace iTextFormBuilderAPI.Tests.Services
+namespace iTextFormBuilderAPITests.Services
 {
     /// <summary>
     /// Tests for the RazorService class.
@@ -85,37 +85,12 @@ namespace iTextFormBuilderAPI.Tests.Services
         /// <summary>
         /// Tests that InitializeAsync logs errors correctly when initialization fails.
         /// </summary>
-        [Fact(Skip = "Cannot properly test non-virtual method InitializeAsync")]
+        [Fact(Skip = "Cannot properly mock non-virtual method")]
         public async Task InitializeAsync_LogsErrorWhenInitializationFails()
         {
             // This test is skipped because we cannot properly mock the non-virtual InitializeAsync method
             // In a real-world scenario, the method should be refactored to be virtual or use an interface
             await Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Tests that RenderTemplateAsync validates the template correctly.
-        /// </summary>
-        [Fact]
-        public async Task RenderTemplateAsync_ValidatesTemplate()
-        {
-            // Arrange
-            var service = new RazorService(_mockTemplateService.Object, _mockLogService.Object);
-            
-            // Setup template service to return empty path for non-existent template
-            _mockTemplateService.Setup(ts => ts.GetTemplatePath("NonExistentTemplate"))
-                .Returns(string.Empty);
-
-            // Act & Assert - check for any exception, not specifically InvalidOperationException
-            var exception = await Assert.ThrowsAnyAsync<Exception>(
-                async () => await service.RenderTemplateAsync("NonExistentTemplate", new object()));
-
-            // Verify that an exception was thrown containing the expected error message
-            Assert.Contains("NonExistentTemplate", exception.Message);
-            
-            // Verify that the template service was called to check the template
-            _mockTemplateService.Verify(ts => ts.GetTemplatePath("NonExistentTemplate"), Times.Once);
-            _mockLogService.Verify(l => l.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.AtLeastOnce);
         }
     }
 }

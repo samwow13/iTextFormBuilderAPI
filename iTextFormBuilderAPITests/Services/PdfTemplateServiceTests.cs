@@ -7,7 +7,7 @@ using Moq;
 using System.Reflection;
 using Xunit;
 
-namespace iTextFormBuilderAPI.Tests.Services
+namespace iTextFormBuilderAPITests.Services
 {
     /// <summary>
     /// Tests for the PdfTemplateService class.

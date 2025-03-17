@@ -7,7 +7,7 @@ using iTextFormBuilderAPI.Services;
 using Moq;
 using Xunit;
 
-namespace iTextFormBuilderAPI.Tests.Services
+namespace iTextFormBuilderAPITests.Services
 {
     /// <summary>
     /// Tests for the PDFGenerationService class.
