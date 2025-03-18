@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using iText.Html2pdf;
@@ -7,7 +8,6 @@ using iTextFormBuilderAPI.Interfaces;
 using iTextFormBuilderAPI.Models;
 using iTextFormBuilderAPI.Models.APIModels;
 using Newtonsoft.Json;
-using System.Reflection;
 
 namespace iTextFormBuilderAPI.Services
 {
@@ -83,14 +83,20 @@ namespace iTextFormBuilderAPI.Services
             // Check dependency statuses
             var dependencyStatuses = new Dictionary<string, string>();
             var razorServiceStatus = CheckRazorServiceStatus();
-            
+
             // Add more dependency checks as needed
-            dependencyStatuses.Add("TemplateService", _templateService.GetTemplateCount() > 0 ? "Healthy" : "Unhealthy");
+            dependencyStatuses.Add(
+                "TemplateService",
+                _templateService.GetTemplateCount() > 0 ? "Healthy" : "Unhealthy"
+            );
             dependencyStatuses.Add("RazorService", razorServiceStatus);
 
             var status = new ServiceHealthStatus
             {
-                Status = _templateService.GetTemplateCount() > 0 && razorServiceStatus == "Healthy" ? "Healthy" : "Unhealthy",
+                Status =
+                    _templateService.GetTemplateCount() > 0 && razorServiceStatus == "Healthy"
+                        ? "Healthy"
+                        : "Unhealthy",
                 TemplateCount = _templateService.GetTemplateCount(),
                 AvailableTemplates = _templateService.GetAllTemplateNames().ToList(),
                 LastChecked = DateTime.UtcNow,
@@ -113,14 +119,20 @@ namespace iTextFormBuilderAPI.Services
                 RazorServiceStatus = razorServiceStatus,
 
                 // Template Insights
-                TemplatePerformance = _metricsService.TemplatePerformance.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
-                TemplateUsageStatistics = _metricsService.TemplateUsageStatistics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                TemplatePerformance = _metricsService.TemplatePerformance.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value
+                ),
+                TemplateUsageStatistics = _metricsService.TemplateUsageStatistics.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value
+                ),
 
                 // Operational Status
                 ServiceVersion = versionString,
-                
+
                 // Recent logs
-                RecentPdfGenerations = _recentPdfGenerations
+                RecentPdfGenerations = _recentPdfGenerations,
             };
 
             return status;
@@ -161,10 +173,10 @@ namespace iTextFormBuilderAPI.Services
             bool success;
             string message;
             byte[] pdfBytes = [];
-            
+
             var stopwatch = Stopwatch.StartNew();
             _metricsService.StartRequest();
-            
+
             try
             {
                 if (!_templateService.TemplateExists(templateName))
@@ -286,14 +298,17 @@ namespace iTextFormBuilderAPI.Services
                 // Track template rendering time
                 Stopwatch templateRenderTimer = new Stopwatch();
                 templateRenderTimer.Start();
-                
+
                 // Render the template using Razor
                 var cshtmlContent = await _razorService.RenderTemplateAsync(templateName, data);
-                
+
                 // Stop timer and record performance
                 templateRenderTimer.Stop();
-                _metricsService.RecordTemplatePerformance(templateName, templateRenderTimer.ElapsedMilliseconds);
-                
+                _metricsService.RecordTemplatePerformance(
+                    templateName,
+                    templateRenderTimer.ElapsedMilliseconds
+                );
+
                 _logService.LogInfo(
                     $"Template '{templateName}' rendered successfully. HTML length: {cshtmlContent.Length} characters, Render time: {templateRenderTimer.ElapsedMilliseconds}ms"
                 );
@@ -316,16 +331,20 @@ namespace iTextFormBuilderAPI.Services
                 // Track PDF conversion time
                 Stopwatch pdfConversionTimer = new Stopwatch();
                 pdfConversionTimer.Start();
-                
+
                 // Convert HTML directly to PDF using memory streams
-                await using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(cshtmlContent));
+                await using var htmlStream = new MemoryStream(
+                    Encoding.UTF8.GetBytes(cshtmlContent)
+                );
                 await using var pdfStream = new MemoryStream();
 
                 HtmlConverter.ConvertToPdf(htmlStream, pdfStream);
-                
+
                 // Stop timer and log performance
                 pdfConversionTimer.Stop();
-                _logService.LogInfo($"HTML converted to PDF successfully. Conversion time: {pdfConversionTimer.ElapsedMilliseconds}ms");
+                _logService.LogInfo(
+                    $"HTML converted to PDF successfully. Conversion time: {pdfConversionTimer.ElapsedMilliseconds}ms"
+                );
 
                 // Get the PDF bytes
                 return pdfStream.ToArray();
@@ -433,7 +452,9 @@ namespace iTextFormBuilderAPI.Services
                             }
                             catch (Exception ex)
                             {
-                                _logService.LogWarning($"Error processing image {fullPath}: {ex.Message}");
+                                _logService.LogWarning(
+                                    $"Error processing image {fullPath}: {ex.Message}"
+                                );
                                 return imgTag; // Keep original tag if processing fails
                             }
                         }

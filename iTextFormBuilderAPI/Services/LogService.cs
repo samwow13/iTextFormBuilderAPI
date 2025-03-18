@@ -18,7 +18,7 @@ public class LogService : ILogService
     {
         // Get a logger with the name of the current class
         _logger = LogManager.GetLogger(typeof(LogService).FullName);
-        
+
         // Log the initialization of the service
         _logger.Info("LogService initialized. Using NLog for logging.");
     }
@@ -76,6 +76,8 @@ public class LogService : ILogService
     {
         // This method does nothing with NLog as it's not needed
         // It's kept for backwards compatibility
-        LogManager.GetLogger(typeof(LogService).FullName).Info("ResetLogClearingFlag called, but this has no effect when using NLog.");
+        LogManager
+            .GetLogger(typeof(LogService).FullName)
+            .Info("ResetLogClearingFlag called, but this has no effect when using NLog.");
     }
 }
