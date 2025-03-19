@@ -28,7 +28,7 @@ namespace iTextFormBuilderAPI.Services
         );
 
         // Store the last 10 PDF generations
-        private static readonly List<PdfGenerationLog> _recentPdfGenerations = [];
+        private static readonly List<PdfGenerationLog> _recentPdfGenerations = new List<PdfGenerationLog>();
 
         // Services injected through the constructor
         private readonly IPdfTemplateService _templateService;
@@ -172,7 +172,7 @@ namespace iTextFormBuilderAPI.Services
             _logService.LogInfo($"Starting PDF generation for template: {templateName}");
             bool success;
             string message;
-            byte[] pdfBytes = [];
+            byte[] pdfBytes = new byte[0];
 
             var stopwatch = Stopwatch.StartNew();
             _metricsService.StartRequest();
@@ -226,6 +226,7 @@ namespace iTextFormBuilderAPI.Services
                     TemplateName = templateName,
                     Success = success,
                     Message = message,
+                    ProcessingTimeMs = stopwatch.ElapsedMilliseconds
                 }
             );
 
@@ -238,7 +239,7 @@ namespace iTextFormBuilderAPI.Services
             return new PdfResult
             {
                 Success = success,
-                PdfBytes = success ? pdfBytes : [],
+                PdfBytes = success ? pdfBytes : new byte[0],
                 Message = message,
             };
         }
@@ -284,7 +285,7 @@ namespace iTextFormBuilderAPI.Services
             if (!_templateService.TemplateExists(templateName))
             {
                 _logService.LogError($"Template '{templateName}' does not exist.");
-                return [];
+                return new byte[0];
             }
 
             try
